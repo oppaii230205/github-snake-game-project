@@ -3,6 +3,10 @@
 #include <thread>
 #include <conio.h>
 #include <cctype>
+#include <mmsystem.h>
+#include <string>
+
+#pragma comment(lib, "winmm.lib")
 
 using namespace std;
 
@@ -35,6 +39,8 @@ int HEIGHT_CONSOLE, WIDTH_CONSOLE;// Width and height of console-screen
 int FOOD_INDEX; // current food-index
 int SIZE_SNAKE; // size of snake, initially maybe 6 units and maximum size may be 10
 int STATE; // State of snake: dead or alive
+string ID_STUDENT = "2312020023120194";
+bool isPlayedGameOverSound;
 
 bool IsValid(int x, int y) {
     for (int i = 0; i < SIZE_SNAKE; i++) {
@@ -60,7 +66,7 @@ void GenerateFood() {
 
 void ResetData() {
     //Initialize the global values //width 70 height 20
-    CHAR_LOCK = 'A', MOVING = 'D', SPEED = 1; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20, SIZE_SNAKE = 4;
+    CHAR_LOCK = 'A', MOVING = 'D', SPEED = 1; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20, SIZE_SNAKE = 4; isPlayedGameOverSound = false;
     // Initialize default values for snake
     snake[0] = { 10, 5 }; snake[1] = { 11, 5 };
     snake[2] = { 12, 5 }; snake[3] = { 13, 5 };
@@ -124,8 +130,17 @@ void PauseGame(HANDLE t) {
     SuspendThread(t);
 }
 
+void PlayEatingSound() {
+  PlaySound(TEXT("retro-coin-02.wav"), NULL, SND_FILENAME | SND_ASYNC);
+}
+
+void PlayGameOverSound() {
+  PlaySound(TEXT("game-over.wav"), NULL, SND_FILENAME | SND_ASYNC);
+}
+
 //Function to update global data
 void Eat() {
+    PlayEatingSound();
     snake[SIZE_SNAKE] = food[FOOD_INDEX];
     
     if (FOOD_INDEX == MAX_SIZE_FOOD - 1) { //Eat all the food at this level
@@ -147,38 +162,59 @@ void Eat() {
     }
 }
 
-//Function to process the dead of snake
-void ProcessDead() {
-    STATE = 0;
-    //GotoXY(snake[SIZE_SNAKE - 1].x, snake[SIZE_SNAKE - 1].y);
-    //cout << "X";
-    GotoXY(0, HEIGHT_CONSOLE + 2); 
-    cout << "Dead, type \'y\' to continue or anykey to exit!";
-}
-
-void DrawSnakeAndFood(char* str) {
+void ClearSnakeAndFood() {
     //DRAW FOOD
     GotoXY(food[FOOD_INDEX].x, food[FOOD_INDEX].y);
-    cout << str;
+    cout << " ";
 
     //DRAW SNAKE
     for (int i = 0; i < SIZE_SNAKE; i++) {
         GotoXY(snake[i].x, snake[i].y);
-        cout << str;
+        cout << " ";
     }
 }
 
-void DrawFood(char* str) {
+void DrawFood(string str) {
     //DRAW FOOD
     GotoXY(food[FOOD_INDEX].x, food[FOOD_INDEX].y);
     cout << str;
 }
 
-void DrawSnake(char* str) {
+void DrawSnake(string str) {
     for (int i = 0; i < SIZE_SNAKE; i++) {
         GotoXY(snake[i].x, snake[i].y);
         cout << str[i];
     }
+}
+
+void ClearSnake() {
+    for (int i = 0; i < SIZE_SNAKE; i++) {
+        GotoXY(snake[i].x, snake[i].y);
+        cout << " ";
+    }
+}
+
+void BlinkSnake() {
+    for (int j = 0; j < 5; j++) {
+        Sleep(200);
+        DrawSnake(ID_STUDENT);
+        Sleep(100);
+        ClearSnake();
+    }
+}
+
+//Function to process the dead of snake
+void ProcessDead() {
+    if (!isPlayedGameOverSound) {
+        PlayGameOverSound();
+        isPlayedGameOverSound = true;
+    }
+    STATE = 0;
+    //GotoXY(snake[SIZE_SNAKE - 1].x, snake[SIZE_SNAKE - 1].y);
+    //cout << "X";
+    BlinkSnake();
+    GotoXY(0, HEIGHT_CONSOLE + 2); 
+    cout << "Dead, type \'y\' to continue or anykey to exit!";
 }
 
 bool matchCoordinate(POINT A, POINT B) {
@@ -313,7 +349,7 @@ void MoveUp() {
 void ThreadFunc() {
     while (true) {
         if (STATE == 1) {
-            DrawSnakeAndFood(" ");
+            ClearSnakeAndFood();
             switch (MOVING) {
                 case 'A':
                     MoveLeft();
@@ -330,7 +366,7 @@ void ThreadFunc() {
             }
             //DrawSnakeAndFood("0");
             DrawFood("0");
-            DrawSnake("2312020023120194");
+            DrawSnake(ID_STUDENT);
             Sleep(200 / SPEED);
         }
         else {
@@ -357,11 +393,23 @@ void setcursor(bool visible, DWORD size) // set bool visible = 0 - invisible, bo
 	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE),&lpCursor);
 }
 
+void ShowConsoleCursor(bool showFlag)
+{
+    HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    CONSOLE_CURSOR_INFO     cursorInfo;
+
+    GetConsoleCursorInfo(out, &cursorInfo);
+    cursorInfo.bVisible = showFlag; // set the cursor visibility
+    SetConsoleCursorInfo(out, &cursorInfo);
+}
+
 int main() {
     int temp;
     FixConsoleWindow();
     StartGame();
-    setcursor(0, 0);  //!!!
+    //setcursor(0, 0);  //!!!
+    ShowConsoleCursor(false);
     thread t1(ThreadFunc); //Create thread for snake
     HANDLE handle_t1 = t1.native_handle(); //Take handle of thread
 
