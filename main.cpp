@@ -24,6 +24,10 @@ void GotoXY(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
+bool matchCoordinate(POINT A, POINT B) {
+    return (A.x == B.x && A.y == B.y);
+}
+
 //Constants
 #define MAX_SIZE_SNAKE 10
 #define MAX_SIZE_FOOD 4
@@ -42,12 +46,29 @@ int STATE; // State of snake: dead or alive
 string ID_STUDENT = "2312020023120194";
 bool isPlayedGameOverSound;
 
-bool IsValid(int x, int y) {
+bool IsValidFood(int x, int y) {
     for (int i = 0; i < SIZE_SNAKE; i++) {
         if (snake[i].x == x && snake[i].y == y) {
             return false;
         }
     }
+    return true;
+}
+
+bool IsValidGate(int x, int y) {
+    POINT point1, point2;
+    point1.x = x - 1;
+    point1.y = y + 1;
+
+    point2.x = x + 1;
+    point2.y = y + 1;
+
+
+    for (int i = 0; i < SIZE_SNAKE; i++) {
+        if (matchCoordinate(snake[i], point1) || matchCoordinate(snake[i], point2))
+            return false;
+    }
+
     return true;
 }
 
@@ -58,10 +79,27 @@ void GenerateFood() {
         do {
             x = rand() % (WIDTH_CONSOLE - 1) + 1;
             y = rand() % (HEIGHT_CONSOLE - 1) + 1;
-        } while (IsValid(x, y) == false);
+        } while (IsValidFood(x, y) == false);
         
         food[i] = { x,y };
     }
+}
+
+void GenerateGate() {
+    int x, y = 0; // Fix the gate on the top-border
+    srand(time(NULL));
+
+    do {
+        x = rand() % (WIDTH_CONSOLE - 3) + 3;   // (-2) + 2 vẫn oke, nma de 3 don vi cho cai cong no dep :v
+    } while (!IsValidGate(x, y));
+    
+    //Draw
+    GotoXY(x - 1, y);
+    cout << (char)201 << '0' << (char)187;
+    GotoXY(x - 1, y + 1);
+    cout << (char)202;
+    GotoXY(x + 1, y + 1);
+    cout << (char)202;
 }
 
 void ResetData() {
@@ -100,16 +138,16 @@ void ResetData() {
 
 
 //Sample
-void DrawBoard(int x, int y, int width, int height, char ch, int curPosX = 0, int curPosY = 0) {
-    GotoXY(x, y);cout << ch;
-    for (int i = 1; i < width; i++)cout << ch;
-    cout << ch;
-    GotoXY(x, height + y);cout << ch;
-    for (int i = 1; i < width; i++)cout << ch;
-    cout << ch;
+void DrawBoard(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
+    GotoXY(x, y);cout << (char)201;
+    for (int i = 1; i < width; i++)cout << (char)205;
+    cout << (char)187;
+    GotoXY(x, height + y);cout << (char)200;
+    for (int i = 1; i < width; i++)cout << (char)205;
+    cout << (char)188;
     for (int i = y + 1; i < height + y; i++){
-    GotoXY(x, i);cout << ch;
-    GotoXY(x + width, i);cout << ch;
+    GotoXY(x, i);cout << (char)186;
+    GotoXY(x + width, i);cout << (char)186;
     }
     GotoXY(curPosX, curPosY);
 }
@@ -117,7 +155,7 @@ void DrawBoard(int x, int y, int width, int height, char ch, int curPosX = 0, in
 void StartGame() {
     system("cls");
     ResetData(); //Initialize
-    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE, '+'); //Draw game
+    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE); //Draw game
     STATE = 1; //Start
 }
 
@@ -146,11 +184,12 @@ void Eat() {
     if (FOOD_INDEX == MAX_SIZE_FOOD - 1) { //Eat all the food at this level
         FOOD_INDEX = 0;
         
-        if (SPEED == MAX_SPEED) {
+        if (SPEED == MAX_SPEED) { //Reset
             SPEED = 1;
-            SIZE_SNAKE = 4; //Reset when pass all level
+            SIZE_SNAKE = 4;
         }
-        else {
+        else { //Move to next level
+            GenerateGate();
             SPEED++;
             SIZE_SNAKE++;
         }
@@ -215,10 +254,6 @@ void ProcessDead() {
     BlinkSnake();
     GotoXY(0, HEIGHT_CONSOLE + 2); 
     cout << "Dead, type \'y\' to continue or anykey to exit!";
-}
-
-bool matchCoordinate(POINT A, POINT B) {
-    return (A.x == B.x && A.y == B.y);
 }
 
 bool hitObstacle(POINT newPoint) {
