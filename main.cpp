@@ -222,7 +222,7 @@ void DrawFood(string str) {
 void DrawSnake(string str) {
     for (int i = 0; i < SIZE_SNAKE; i++) {
         GotoXY(snake[i].x, snake[i].y);
-        cout << str[i];
+        cout << str[SIZE_SNAKE - i - 1];
     }
 }
 
@@ -449,7 +449,7 @@ int main() {
     HANDLE handle_t1 = t1.native_handle(); //Take handle of thread
 
     while (true) {
-        temp = toupper(getch()); // ???
+        temp = toupper(_getch()); // ???
         if (STATE == 1) {
             if (temp == 'P') {
                 PauseGame(handle_t1);
