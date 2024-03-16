@@ -24,6 +24,15 @@ void GotoXY(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
+void SetOutputColor(int foregroundColor, int backgroundColor = 15) { //15 is White Background Color
+    int finalColor = foregroundColor + 16*backgroundColor;
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), finalColor);
+}
+
+void setColor(int color) {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+}
+
 bool matchCoordinate(POINT A, POINT B) {
     return (A.x == B.x && A.y == B.y);
 }
@@ -36,6 +45,7 @@ bool matchCoordinate(POINT A, POINT B) {
 //Global variables5
 POINT snake[10]; //snake
 POINT food[4]; // food
+POINT gate; //gate
 int CHAR_LOCK;//used to determine the direction my snake cannot move (At a moment, there is one direction my snake cannot move to)
 int MOVING;//used to determine the direction my snake moves (At a moment, there are three directions my snake can move)
 int SPEED;// Standing for level, the higher the level, the quicker the speed
@@ -93,9 +103,18 @@ void GenerateGate() {
         x = rand() % (WIDTH_CONSOLE - 3) + 3;   // (-2) + 2 vẫn oke, nma de 3 don vi cho cai cong no dep :v
     } while (!IsValidGate(x, y));
     
+    //Save
+    gate.x = x;
+    gate.y = y;
+
     //Draw
+    setColor(244);
     GotoXY(x - 1, y);
-    cout << (char)201 << '0' << (char)187;
+    cout << (char)201;
+    setColor(246);
+    cout << 'O';
+    setColor(244);
+    cout << (char)187;
     GotoXY(x - 1, y + 1);
     cout << (char)202;
     GotoXY(x + 1, y + 1);
@@ -112,33 +131,9 @@ void ResetData() {
     GenerateFood();//Create food array
 }
 
-
-/*void DrawBoard(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
-    //Row
-    GotoXY(x, y);
-    for (int i = 0; i < width; i++) {
-        cout << "X";
-    }
-
-    GotoXY(x, y + height - 1);
-    for (int i = 0; i < width; i++) {
-        cout << "X";
-    }
-
-    //Column
-    for (int i = 0; i < height; i++) {
-        GotoXY(x, i);
-        cout << "X";
-        GotoXY(x + width - 1, i);
-        cout << "X";
-    }
-
-    GotoXY(curPosX, curPosY);
-}*/
-
-
 //Sample
 void DrawBoard(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
+    setColor(246);
     GotoXY(x, y);cout << (char)201;
     for (int i = 1; i < width; i++)cout << (char)205;
     cout << (char)187;
@@ -213,17 +208,25 @@ void ClearSnakeAndFood() {
     }
 }
 
-void DrawFood(string str) {
+void DrawFood(char ch) {
     //DRAW FOOD
+    setColor(250);
     GotoXY(food[FOOD_INDEX].x, food[FOOD_INDEX].y);
-    cout << str;
+    cout << ch;
 }
 
 void DrawSnake(string str) {
-    for (int i = 0; i < SIZE_SNAKE; i++) {
+    setColor(243);
+    for (int i = 0; i < SIZE_SNAKE - 1; i++) {
         GotoXY(snake[i].x, snake[i].y);
         cout << str[SIZE_SNAKE - i - 1];
     }
+
+    setColor(245);
+    GotoXY(snake[SIZE_SNAKE - 1].x, snake[SIZE_SNAKE - 1].y);
+    cout << str[0];
+
+    setColor(255);
 }
 
 void ClearSnake() {
@@ -257,6 +260,10 @@ void ProcessDead() {
 }
 
 bool hitObstacle(POINT newPoint) {
+    //Enter Gate
+    if (matchCoordinate(newPoint, gate))
+        return false;
+
     //Border
     if (newPoint.x == 0 || newPoint.x == WIDTH_CONSOLE || newPoint.y == 0 || newPoint.y == HEIGHT_CONSOLE)
         return true;
@@ -267,7 +274,33 @@ bool hitObstacle(POINT newPoint) {
             return true;
     }
 
+    //Gate
+    POINT point1, point2;
+    point1.x = gate.x - 1;
+    point1.y = gate.y + 1;
+
+    point2.x = gate.x + 1;
+    point2.y = gate.y + 1;
+
+    if (matchCoordinate(snake[SIZE_SNAKE - 1], point1) || matchCoordinate(snake[SIZE_SNAKE - 1], point2))
+        return true;
+
     return false;
+}
+
+void ProcessGate() {
+    if (matchCoordinate(snake[SIZE_SNAKE - 1], gate)) {
+        PlaySound(TEXT("goodresult.wav"), NULL, SND_FILENAME | SND_ASYNC);
+          
+        for (int i = SIZE_SNAKE - 1; i >= 0; i--) {
+            GotoXY(snake[i].x, snake[i].y);
+            cout << " ";
+        }
+    }
+    else {
+        DrawFood((char)254);
+        DrawSnake(ID_STUDENT);
+    }
 }
 
 //Functions for moving the snake
@@ -399,9 +432,9 @@ void ThreadFunc() {
                     MoveDown();
                     break;
             }
-            //DrawSnakeAndFood("0");
-            DrawFood("0");
-            DrawSnake(ID_STUDENT);
+            /*DrawFood((char)254);
+            DrawSnake(ID_STUDENT);*/
+            ProcessGate();
             Sleep(200 / SPEED);
         }
         else {
@@ -440,6 +473,7 @@ void ShowConsoleCursor(bool showFlag)
 }
 
 int main() {
+    system("color F0");
     int temp;
     FixConsoleWindow();
     StartGame();
