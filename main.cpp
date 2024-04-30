@@ -25,8 +25,20 @@ void GotoXY(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
-void setColor(int color) {
-    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+void setColor(WORD color)
+{
+	HANDLE hConsoleOutput;
+	hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	CONSOLE_SCREEN_BUFFER_INFO screen_buffer_info;
+	GetConsoleScreenBufferInfo(hConsoleOutput, &screen_buffer_info);
+
+	WORD wAttributes = screen_buffer_info.wAttributes;
+	color &= 0x000f;
+	wAttributes &= 0xfff0;
+	wAttributes |= color;
+
+	SetConsoleTextAttribute(hConsoleOutput, wAttributes);
 }
 
 bool matchCoordinate(POINT A, POINT B) {
@@ -733,13 +745,149 @@ int Choose_Score()
     return 0;
 }
 
+void printLine(int n, char c) {
+    for (int i = 0; i < n; i++) {
+        cout << c;
+    }
+}
+
+void printColumn(int n, char c, int x, int y) {
+    GotoXY(x, y);
+
+    for (int i = y; i < n + y; ++i) {
+        cout << c;
+        GotoXY(x, i + 1);
+    }
+}
+
+void moveText(int x, int y, const string& text, int speed) {
+    for (char c : text) {
+        GotoXY(x++, y);
+        cout << c;
+        Sleep(speed);
+    }
+}
+
+void drawSnake(int x_snake, int y_snake) {
+    GotoXY(x_snake, y_snake++);
+    cout << "    --..,_                     _,.--.";
+    GotoXY(x_snake, y_snake++);
+    cout << "       `'.'.                .'`__ o  `;__.      ";
+    GotoXY(x_snake, y_snake++);
+    cout << "          '.'.            .'.'`  '---'`  `";
+    GotoXY(x_snake, y_snake++);
+    cout << "            '.`'--....--'`.'";
+    GotoXY(x_snake, y_snake++);
+    cout << "              `'--....--'`";
+}
+
+void clearScreen(int x_snake, int y_snake) {
+    for (int i = 0; i < 5; i++) {
+        GotoXY(x_snake, y_snake + i);
+        cout << "                                          "; // Clear the previous drawing
+    }
+}
+
+void intro() {
+
+    // Clear screen
+    system("cls");
+
+    int x = 20;
+    int x_team = 33;
+    int x_name = 50;
+    int x_snake = 1;
+    int y_snake = 22;
+    int y_name = 26;
+    int y = 1;
+
+    //title
+    setColor(LIGHTBLUE);
+    GotoXY(x - 5, y++);
+    cout << char(218);
+    printLine(93, char(196));
+    cout << char(191);
+    GotoXY(x, y++);
+    cout << " _______  ______   _______  ___ ___  _______     _______  _______  ___ ___  _______ ";
+    GotoXY(x, y++);
+    cout << "|   _   ||   _  \\ |   _   ||   Y   )|   _   |   |   _   ||   _   ||   Y   ||   _   |";
+    GotoXY(x, y++);
+    cout << "|   1___||.  |   ||.  1   ||.  1  / |.  1___|   |.  |___||.  1   ||.      ||.  1___|";
+    GotoXY(x, y++);
+    cout << "|____   ||.  |   ||.  _   ||.  _  \\ |.  __)_    |.  |   ||.  _   ||. \\_/  ||.  __)_ ";
+    GotoXY(x, y++);
+    cout << "|:  1   ||:  |   ||:  |   ||:  |   \\|:  1   |   |:  1   ||:  |   ||:  |   ||:  1   |";
+    GotoXY(x, y++);
+    cout << "|::.. . ||::.|   ||::.|:. ||::.| .  )::.. . |   |::.. . ||::.|:. ||::.|:. ||::.. . |";
+    GotoXY(x, y++);
+    cout << "`-------'`--- ---'`--- ---'`--- ---'`-------'   `-------'`--- ---'`--- ---'`-------'";
+    GotoXY(x - 5, y++);
+    cout << char(192);
+    printLine(93, char(196));
+    cout << char(217);
+    Sleep(1000);
+
+    //team
+    setColor(RED);
+    GotoXY(x_team, y++);
+    cout << "   .-') _     ('-.   ('-.     _   .-')                    ";
+    GotoXY(x_team, y++);
+    cout << "  (  OO) )  _(  OO) ( OO ).-.( '.( OO )_                  ";
+    GotoXY(x_team, y++);
+    cout << "  /     '._(,------./ . --. / ,--.   ,--.)       .-----.  ";
+    GotoXY(x_team, y++);
+    cout << "  |'--...__)|  .---'| \\-.  \\  |   `.'   |       / ,-.   \\ ";
+
+
+    GotoXY(x_team - 13, y++);
+    printLine(13, char(196));
+    cout << "  '--.  .--'|  |  .-'-'  |  | |         |       '-'  |  | ";
+    printLine(13, char(196));
+
+    GotoXY(x_team - 13, y++);
+    printLine(13, char(196));
+    cout << "     |  |  (|  '--.\\| |_.'  | |  |'.'|  |          .'  /  ";
+    printLine(13, char(196));
+
+    GotoXY(x_team, y++);
+    cout << "     |  |   |  .--' |  .-.  | |  |   |  |        .'  /__  ";
+    GotoXY(x_team, y++);
+    cout << "     |  |   |  `---.|  | |  | |  |   |  |       |       | ";
+    GotoXY(x_team, y++);
+    cout << "     `--'   `------'`--' `--' `--'   `--'       `-------' ";
+
+    //snake
+    setColor(PURPLE);
+    int count = 0;
+    while (count < 78) {
+        drawSnake(x_snake, y_snake);
+        Sleep(40);
+        clearScreen(x_snake, y_snake);
+        x_snake++; // Move to the right
+        count++;
+    }
+
+    string instructor = "INSTRUCTOR: TRUONG TOAN THINH";
+    string university = "UNIVERSITY OF SCIENCE";
+    moveText(x_name, y_name++, instructor, 50);
+    moveText(x_name + 4, y_name++, university, 50);
+
+    Sleep(2000);
+    system("cls");
+}
+
+
 int main() {
     system("color F0");
-    int temp;
     FixConsoleWindow();
     ShowConsoleCursor(false);
+    SetConsoleCP(437);
+    SetConsoleOutputCP(437);
+
+    int temp;
     bool TurnOnThread = false;
 
+    intro();
     //StartGame();
     //setcursor(0, 0);  //!!!
     //if (TurnOnThread == false)
