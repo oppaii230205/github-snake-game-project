@@ -5,7 +5,7 @@
 #include <cctype>
 #include <mmsystem.h>
 #include <string>
-#include "fixconsolewindows.h"
+#include "fixconsolewindows.h" //Visual Studio
 
 #pragma comment(lib, "winmm.lib")
 
