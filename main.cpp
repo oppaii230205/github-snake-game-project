@@ -5,6 +5,7 @@
 #include <cctype>
 #include <mmsystem.h>
 #include <string>
+#include "fixconsolewindows.h"
 
 #pragma comment(lib, "winmm.lib")
 
@@ -24,11 +25,6 @@ void GotoXY(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
-void SetOutputColor(int foregroundColor, int backgroundColor = 15) { //15 is White Background Color
-    int finalColor = foregroundColor + 16 * backgroundColor;
-    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), finalColor);
-}
-
 void setColor(int color) {
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
@@ -38,9 +34,9 @@ bool matchCoordinate(POINT A, POINT B) {
 }
 
 //Constants
-#define MAX_SIZE_SNAKE 10
+#define MAX_SIZE_SNAKE 40
 #define MAX_SIZE_FOOD 4
-#define MAX_SPEED 3
+#define MAX_LEVEL 3
 #define BLACK 240
 #define LIGHTBLUE 243
 #define RED 244
@@ -50,14 +46,15 @@ bool matchCoordinate(POINT A, POINT B) {
 #define WHITE 255
 
 
-
-//Global variables5
-POINT snake[10]; //snake
-POINT food[4]; // food
-POINT gate; //gate
-POINT gate_2;
-int pos_2;
-POINT wall[50];
+//Global variables
+POINT snake[MAX_SIZE_SNAKE]; //snake
+POINT food[MAX_SIZE_FOOD]; // food
+POINT gateIn; //snake will enter this gate
+POINT gateOut; //snake will go from this gate when moving to next level
+POINT dummyGate = { -10, -10 };
+int numsOfWalls; //use with array wall[] to create the obstacles for each level
+int Level; //use to determine the level at some point
+POINT wall[50]; //array of obstacles
 int CHAR_LOCK;//used to determine the direction my snake cannot move (At a moment, there is one direction my snake cannot move to)
 int MOVING;//used to determine the direction my snake moves (At a moment, there are three directions my snake can move)
 int SPEED;// Standing for level, the higher the level, the quicker the speed
@@ -65,9 +62,9 @@ int HEIGHT_CONSOLE, WIDTH_CONSOLE;// Width and height of console-screen
 int FOOD_INDEX; // current food-index
 int SIZE_SNAKE; // size of snake, initially maybe 6 units and maximum size may be 10
 int STATE; // State of snake: dead or alive
-string ID_STUDENT = "2312020023120194";
-bool isPlayedGameOverSound;
-bool isNextLevel;
+string ID_STUDENT = "2312019323120194231201952312020023120209";
+bool isPlayedGameOverSound;//use to determine whether the "game-over sound" is played or not
+bool isNextLevel;//use to determine whether the entering gate is generated or not
 
 bool IsValidFood(int x, int y) {
     //Body
@@ -78,13 +75,36 @@ bool IsValidFood(int x, int y) {
     }
 
     //Wall
-    for (int i = 0; i < pos_2; i++) {
+    for (int i = 0; i < numsOfWalls; i++) {
         if (wall[i].x == x && wall[i].y == y) {
             return false;
         }
     }
 
     return true;
+}
+
+void GenerateFood() {
+    int x, y;
+    srand(time(NULL));
+    for (int i = 0; i < MAX_SIZE_FOOD; i++) {
+        do {
+            x = rand() % (WIDTH_CONSOLE - 1) + 1;
+            y = rand() % (HEIGHT_CONSOLE - 1) + 1;
+        } while (IsValidFood(x, y) == false);
+
+        food[i] = { x,y };
+    }
+}
+
+void ResetData() {
+    //Initialize the global values //width 70 height 20
+    CHAR_LOCK = 'A'; MOVING = 'D'; SPEED = 1; FOOD_INDEX = 0; WIDTH_CONSOLE = 70; HEIGHT_CONSOLE = 20; SIZE_SNAKE = 4; isPlayedGameOverSound = isNextLevel = false; Level = 1; numsOfWalls = 0; gateIn = gateOut = dummyGate;
+    // Initialize default values for snake
+    snake[0] = { 10, 5 }; snake[1] = { 11, 5 };
+    snake[2] = { 12, 5 }; snake[3] = { 13, 5 };
+    snake[4] = { 14, 5 }; snake[5] = { 15, 5 };
+    GenerateFood();//Create food array
 }
 
 bool IsValidGate(int x, int y) {
@@ -104,38 +124,9 @@ bool IsValidGate(int x, int y) {
     return true;
 }
 
-bool IsValidWall(int x, int y) {
-    POINT point1, point2;
-    point1.x = x - 1;
-    point1.y = y + 1;
 
-    point2.x = x + 1;
-    point2.y = y + 1;
-
-
-    for (int i = 0; i < SIZE_SNAKE; i++) {
-        if (matchCoordinate(snake[i], point1) || matchCoordinate(snake[i], point2))
-            return false;
-    }
-
-    return true;
-}
-
-void GenerateFood() {
-    int x, y;
-    srand(time(NULL));
-    for (int i = 0; i < MAX_SIZE_FOOD; i++) {
-        do {
-            x = rand() % (WIDTH_CONSOLE - 1) + 1;
-            y = rand() % (HEIGHT_CONSOLE - 1) + 1;
-        } while (IsValidFood(x, y) == false);
-
-        food[i] = { x,y };
-    }
-}
-
-void GenerateGate_1() {
-    int x, y = 0; // Fix the gate on the top-border
+void GenerateGateIn() {
+    int x, y = 0; // Fix the gateIn on the top-border
     srand(time(NULL));
 
     do {
@@ -143,62 +134,49 @@ void GenerateGate_1() {
     } while (!IsValidGate(x, y));
 
     //Save
-    gate.x = x;
-    gate.y = y;
+    gateIn.x = x;
+    gateIn.y = y;
 
     //Draw
-    setColor(244);
+    setColor(RED);
     GotoXY(x - 1, y);
     cout << (char)201;
-    setColor(246);
+    setColor(GOLDEN);
     cout << 'O';
-    setColor(244);
+    setColor(RED);
     cout << (char)187;
     GotoXY(x - 1, y + 1);
     cout << (char)202;
     GotoXY(x + 1, y + 1);
     cout << (char)202;
-    setColor(255);
+    //setColor(WHITE);
 }
 
-void GenerateGate_2() {
-    int x = gate_2.x = gate.x;
-    int y = gate_2.y = HEIGHT_CONSOLE;;
+void GenerateGateOut() {
+    int x = gateOut.x = gateIn.x;
+    int y = gateOut.y = HEIGHT_CONSOLE;
 
     //Draw
-    setColor(244);
+    setColor(RED);
     GotoXY(x - 1, y);
     cout << (char)200;
-    setColor(246);
+    setColor(GOLDEN);
     cout << 'O';
-    setColor(244);
+    setColor(RED);
     cout << (char)188;
     GotoXY(x + 1, y - 1);
     cout << (char)203;
     GotoXY(x - 1, y - 1);
     cout << (char)203;
-    //setColor(255);
+    //setColor(WHITE);
 }
 
-void ClearGate_1() {
-    int x = gate.x;
-    int y = gate.y;
-    GotoXY(x, y);
-    cout << " ";
-    GotoXY(x - 1, y);
-    cout << " ";
-    GotoXY(x - 1, y + 1);
-    cout << " ";
-    GotoXY(x + 1, y + 1);
-    cout << " ";
-}
-
-void ClearGate_2() {
-    int x = gate_2.x;
-    int y = gate_2.y;
+void ClearGateOut() {
+    int x = gateOut.x;
+    int y = gateOut.y;
     setColor(GOLDEN);
     GotoXY(x - 1, y);
-    cout << char(205) << char(205) << char(205); //3 spaces
+    cout << (char)205 << (char)205 << (char)205; //3 spaces
     setColor(WHITE);
     GotoXY(x - 1, y - 1);
     cout << " ";
@@ -206,19 +184,9 @@ void ClearGate_2() {
     cout << " ";
 }
 
-void ResetData() {
-    //Initialize the global values //width 70 height 20
-    CHAR_LOCK = 'A', MOVING = 'D', SPEED = 1; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20, SIZE_SNAKE = 4; isPlayedGameOverSound = isNextLevel = false;
-    // Initialize default values for snake
-    snake[0] = { 10, 5 }; snake[1] = { 11, 5 };
-    snake[2] = { 12, 5 }; snake[3] = { 13, 5 };
-    snake[4] = { 14, 5 }; snake[5] = { 15, 5 };
-    GenerateFood();//Create food array
-}
-
 //Sample
 void DrawBoard(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
-    setColor(246);
+    setColor(GOLDEN);
     GotoXY(x, y); cout << (char)201;
     for (int i = 1; i < width; i++)cout << (char)205;
     cout << (char)187;
@@ -242,7 +210,8 @@ void StartGame() {
 
 void ExitGame(HANDLE t) {
     system("cls");
-    TerminateThread(t, 0);
+    //TerminateThread(t, 0);
+    exit(0);
 }
 
 void PauseGame(HANDLE t) {
@@ -270,19 +239,8 @@ void Eat() {
     if (FOOD_INDEX == MAX_SIZE_FOOD - 1) { //Eat all the food at this level
         FOOD_INDEX = 0;
         isNextLevel = true;
-
-        if (SPEED == MAX_SPEED) { //Reset
-            SPEED = 1;
-            SIZE_SNAKE = 4;
-        }
-        else { //Move to next level
-            ClearFood();
-            GenerateGate_1();
-            // Level_2(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
-            SPEED++;
-            SIZE_SNAKE++;
-        }
-        //GenerateFood();
+        GenerateGateIn();
+        SIZE_SNAKE++;
     }
     else {
         FOOD_INDEX++;
@@ -311,22 +269,23 @@ void DrawFood(char ch) {
 }
 
 void DrawSnake(string str) {
-    setColor(243);
+    setColor(LIGHTBLUE);
     for (int i = 0; i < SIZE_SNAKE - 1; i++) {
-        if (snake[i].x < WIDTH_CONSOLE && snake[i].y <= HEIGHT_CONSOLE) {
+        if (snake[i].x < WIDTH_CONSOLE && snake[i].y < HEIGHT_CONSOLE) {
             GotoXY(snake[i].x, snake[i].y);
             cout << str[SIZE_SNAKE - i - 1];
         }
     }
 
-    setColor(245);
+    setColor(PURPLE);
     GotoXY(snake[SIZE_SNAKE - 1].x, snake[SIZE_SNAKE - 1].y);
     cout << str[0];
 
-    setColor(255);
+    //setColor(WHITE);
 }
 
 void ClearSnake() {
+    setColor(WHITE);
     for (int i = 0; i < SIZE_SNAKE; i++) {
         GotoXY(snake[i].x, snake[i].y);
         cout << " ";
@@ -349,84 +308,142 @@ void ProcessDead() {
         isPlayedGameOverSound = true;
     }
     STATE = 0;
-    //GotoXY(snake[SIZE_SNAKE - 1].x, snake[SIZE_SNAKE - 1].y);
-    //cout << "X";
     BlinkSnake();
     setColor(244);
     GotoXY(0, HEIGHT_CONSOLE + 2);
     cout << "Dead, type \'y\' to continue or anykey to exit!";
-    setColor(255);
+    //setColor(WHITE);
 }
 
 void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
     system("cls");
-    /*FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; SPEED = 2, isPlayedGameOverSound = false;
-    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);*/
-    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = isNextLevel = false;
+    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = false; isNextLevel = false;
     DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
     STATE = 1;
-    GenerateGate_2();
-    snake[SIZE_SNAKE - 1].x = gate_2.x;
-    snake[SIZE_SNAKE - 1].y = gate_2.y - 1;
-    /*for (int i = SIZE_SNAKE - 1; i > 1; i--) {
-        snake[i - 1].x = snake[i].x;
-        snake[i - 1].y = snake[i].y; //+ 1;
-    }*/
-
+    //ClearGateOut();
+    GenerateGateOut();
+    snake[SIZE_SNAKE - 1].x = gateOut.x;
+    snake[SIZE_SNAKE - 1].y = gateOut.y - 1;
     //Set other coordinate to NULL
-    for (int i = 0; i < SIZE_SNAKE - 1; i++) { //chua thang snake[0] lai
-        snake[i].x = 80;
-        snake[i].y = 80;
+    for (int i = 0; i < SIZE_SNAKE - 1; i++) {
+        snake[i].x = 888;
+        snake[i].y = 888;
     }
-    //ClearGate_2();
+    
+    //gateIn.x = -10, gateIn.y = -10;
 
     setColor(RED);
-    pos_2 = 0;
+    numsOfWalls = 0;
     wall[0] = { 28,7 };
     for (int i = 28; i <= 42; i++) {
-        wall[pos_2++] = { i,7 };
+        wall[numsOfWalls++] = { i,7 };
         GotoXY(i, 7);
         cout << (char)254;
     }
 
     for (int i = 28; i <= 42; i++) {
-        wall[pos_2++] = { i, 13};
+        wall[numsOfWalls++] = { i, 13 };
         GotoXY(i, 13);
         cout << (char)254;
     }
-
     GenerateFood();
 }
 
-void ProcessGate() {
-    if (matchCoordinate(snake[SIZE_SNAKE - 1], gate)) {
-        PlaySound(TEXT("goodresult.wav"), NULL, SND_FILENAME | SND_ASYNC);
-        /*for (int i = SIZE_SNAKE - 1; i >= 0; i--) {
-            GotoXY(snake[i].x, snake[i].y);
-            cout << " ";
-        }*/
-        ClearSnakeAndFood();
+void Level_3(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
+    system("cls");
+    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = isNextLevel = false;
+    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
+    STATE = 1;
+    GenerateGateOut();
+    snake[SIZE_SNAKE - 1].x = gateOut.x;
+    snake[SIZE_SNAKE - 1].y = gateOut.y - 1;
+    //Set other coordinate to NULL
+    for (int i = 0; i < SIZE_SNAKE - 1; i++) {
+        snake[i].x = 888;
+        snake[i].y = 888;
+    }
+    //gateIn.x = -10, gateIn.y = -10;
+
+    setColor(RED);
+    numsOfWalls = 0;
+    int j = 10;
+    for (int i = 15; i <= 20; i++) {
+        GotoXY(i, j);
+        cout << (char)174;
+        wall[numsOfWalls++] = { i, j-- };
+    }
+    for (int i = 16; i <= 20; i++) {
+        GotoXY(i, i - 5);
+        cout << (char)174;
+        wall[numsOfWalls++] = { i,i - 5 };
+    }
+    for (int i = 50; i <= 55; i++) {
+        GotoXY(i, i - 45);
+        cout << (char)175;
+        wall[numsOfWalls++] = { i,i - 45 };
+    }
+    j = 15;
+    for (int i = 50; i <= 54; i++) {
+        GotoXY(i, j);
+        cout << (char)175;
+        wall[numsOfWalls++] = { i, j-- };
+    }
+    GenerateFood();
+}
+
+void ChangeLevel() {
+    switch (Level) {
+    case 2:
         Level_2(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
+        break;
+    case 3:
+        Level_3(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
+        break;
+    default:
+        StartGame();
+        break;
+    }
+}
+
+void ProcessGate() {
+    if (!matchCoordinate(dummyGate, gateIn) && matchCoordinate(snake[SIZE_SNAKE - 1], gateIn)) {
+        Level += 1;
+        PlaySound(TEXT("goodresult.wav"), NULL, SND_FILENAME | SND_ASYNC);
+        //ClearSnakeAndFood();
+        ChangeLevel();
     }
     else {
         if (!isNextLevel)
             DrawFood((char)254);
-        
-        //Clear gate
-        POINT temp = gate_2;
-        temp.y--;
-        if (matchCoordinate(snake[0], temp)) {
-            ClearGate_2();
-        }
 
+        /*
+        //Clear gate
+        POINT temp = gateOut;
+        temp.y--;
+        if (matchCoordinate(snake[0], temp)) { //snake_tail
+            ClearGateOut();
+        }
+        */
         //Draw snake
         DrawSnake(ID_STUDENT);
     }
+
+    //Clear gateOut
+    if (!matchCoordinate(dummyGate, gateOut)) {
+        POINT temp = gateOut;
+        temp.y--;
+        if (matchCoordinate(snake[0], temp)) { //snake_tail
+            ClearGateOut();
+            gateIn = dummyGate;
+            gateOut = dummyGate;
+        }
+    }
+    
 }
 
 bool hitObstacle(POINT newPoint) {
     //Enter Gate
-    if (matchCoordinate(newPoint, gate))
+    if (matchCoordinate(newPoint, gateIn))
         return false;
 
     //Crash Border
@@ -441,17 +458,17 @@ bool hitObstacle(POINT newPoint) {
 
     //Crash Gate
     POINT point1, point2;
-    point1.x = gate.x - 1;
-    point1.y = gate.y - 1;
+    point1.x = gateIn.x - 1;
+    point1.y = gateIn.y + 1;
 
-    point2.x = gate.x + 1;
-    point2.y = gate.y - 1;
+    point2.x = gateIn.x + 1;
+    point2.y = gateIn.y + 1;
 
     if (matchCoordinate(snake[SIZE_SNAKE - 1], point1) || matchCoordinate(snake[SIZE_SNAKE - 1], point2))
         return true;
 
     //Crash Wall
-    for (int i = 0; i < pos_2; i++) {
+    for (int i = 0; i < numsOfWalls; i++) {
         if (matchCoordinate(snake[SIZE_SNAKE - 1], wall[i]))
             return true;
     }
@@ -597,7 +614,7 @@ void ThreadFunc() {
             ProcessGate();
             Sleep(200 / SPEED);
         }
-        else {
+        else if (STATE == 0) {
             ProcessDead();
         }
     }
@@ -632,51 +649,174 @@ void ShowConsoleCursor(bool showFlag)
     SetConsoleCursorInfo(out, &cursorInfo);
 }
 
+void Draw_Menu(int choose)
+{
+    system("cls");
+    system("color F0");
+    switch (choose)
+    {
+    case 0:
+
+        GotoXY(32, 10);
+        cout << "BAT DAU";
+        break;
+    case 1:
+
+        GotoXY(32, 10);
+        cout << "OPTION";
+        break;
+    case 2:
+
+        GotoXY(32, 10);
+        cout << "SCORE";
+        break;
+    case 3:
+
+        GotoXY(32, 10);
+        cout << "EXIT";
+        break;
+    }
+
+}
+
+void ChooseMenu(int& choose)
+{
+    int temp = 0;
+    Draw_Menu(choose);
+    while (temp != 32)
+    {
+        if (_kbhit())
+        {
+            temp = toupper(_getch());
+            if (temp == 'W')
+                choose--;
+            else if (temp == 'S')
+                choose++;
+            if (choose < 0)
+                choose = 3;
+            else if (choose > 3)
+                choose = 0;
+            Draw_Menu(choose);
+        }
+    }
+}
+
+int Choose_Option()
+{
+    system("cls");
+    cout << "WILL BE UPDATED SOON!!";
+    while (true)
+    {
+        if (_kbhit())
+        {
+            int temp = toupper(_getch());
+            if (temp == 27)
+                break;
+        }
+    }
+    return 0;
+}
+
+int Choose_Score()
+{
+    system("cls");
+    cout << "WILL BE UPDATED SOON!!";
+    while (true)
+    {
+        if (_kbhit())
+        {
+            int temp = toupper(_getch());
+            if (temp == 27)
+                break;
+        }
+    }
+    return 0;
+}
+
 int main() {
     system("color F0");
     int temp;
     FixConsoleWindow();
-    StartGame();
-    //setcursor(0, 0);  //!!!
     ShowConsoleCursor(false);
+    bool TurnOnThread = false;
+
+    //StartGame();
+    //setcursor(0, 0);  //!!!
+    //if (TurnOnThread == false)
+    //{
     thread t1(ThreadFunc); //Create thread for snake
     HANDLE handle_t1 = t1.native_handle(); //Take handle of thread
 
-    while (true) {
-        temp = toupper(_getch()); // ???
-        if (STATE == 1) {
-            if (temp == 'P') {
-                PauseGame(handle_t1);
-            }
-            else if (temp == 27) { // 27 is ASCII value of 'ESC' key
-                ExitGame(handle_t1);
-                return 0;
-            }
-            else {
-                ResumeThread(handle_t1);
+    PauseGame(handle_t1);
 
-                //Logic of snake's move
-                if (isValidKey(temp)) {
-                    if (temp == 'D')
-                        CHAR_LOCK = 'A';
-                    else if (temp == 'A')
-                        CHAR_LOCK = 'D';
-                    else if (temp == 'W')
-                        CHAR_LOCK = 'S';
+    //}
+
+    int choose = 0;
+MENU:
+    {
+        ChooseMenu(choose);
+        if (choose == 0)
+        {
+
+            StartGame();
+            DrawSnake(ID_STUDENT);
+            while (true) {
+                temp = toupper(_getch()); // ???
+                if (STATE == 1) {
+                    if (temp == 'P') {
+                        PauseGame(handle_t1);
+                    }
+                    else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
+                    else {
+                        ResumeThread(handle_t1);
+
+                        //Logic of snake's move
+                        if (isValidKey(temp)) {
+                            if (temp == 'D')
+                                CHAR_LOCK = 'A';
+                            else if (temp == 'A')
+                                CHAR_LOCK = 'D';
+                            else if (temp == 'W')
+                                CHAR_LOCK = 'S';
+                            else
+                                CHAR_LOCK = 'W';
+                            MOVING = temp;
+                        }
+                    }
+                }
+                else {
+                    if (temp == 'Y')
+                        StartGame();
+                    else if (temp == 13)
+                    {
+                        PauseGame(handle_t1);
+                        DrawSnake(ID_STUDENT);
+                        goto MENU;
+                    }
                     else
-                        CHAR_LOCK = 'W';
-                    MOVING = temp;
+                    {
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
                 }
             }
+
         }
-        else {
-            if (temp == 'Y')
-                StartGame();
-            else {
-                ExitGame(handle_t1);
-                return 0;
-            }
+        else if (choose == 1)
+        {
+            Choose_Option();
+            goto MENU;
         }
+        else if (choose == 2)
+        {
+            Choose_Score();
+            goto MENU;
+        }
+        else if (choose == 3)
+            ExitGame(handle_t1);
     }
     return 0;
 }
