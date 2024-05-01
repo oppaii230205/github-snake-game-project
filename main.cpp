@@ -26,8 +26,20 @@ void GotoXY(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
-void setColor(int color) {
-    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+void setColor(WORD color)
+{
+    HANDLE hConsoleOutput;
+    hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    CONSOLE_SCREEN_BUFFER_INFO screen_buffer_info;
+    GetConsoleScreenBufferInfo(hConsoleOutput, &screen_buffer_info);
+
+    WORD wAttributes = screen_buffer_info.wAttributes;
+    color &= 0x000f;
+    wAttributes &= 0xfff0;
+    wAttributes |= color;
+
+    SetConsoleTextAttribute(hConsoleOutput, wAttributes);
 }
 
 bool matchCoordinate(POINT A, POINT B) {
@@ -43,6 +55,7 @@ bool matchCoordinate(POINT A, POINT B) {
 #define RED 244
 #define PURPLE 245
 #define GOLDEN 246
+#define GREY 247
 #define GREEN 250
 #define WHITE 255
 
@@ -66,6 +79,7 @@ int STATE; // State of snake: dead or alive
 string ID_STUDENT = "2312019323120194231201952312020023120209";
 bool isPlayedGameOverSound;//use to determine whether the "game-over sound" is played or not
 bool isNextLevel;//use to determine whether the entering gate is generated or not
+int menu_choice;
 
 bool IsValidFood(int x, int y) {
     //Body
@@ -368,10 +382,10 @@ void wallGeneration() {
         }
         break;
     }
-        default:
-            break;
+    default:
+        break;
     }
- 
+
 }
 
 void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
@@ -388,7 +402,7 @@ void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         snake[i].x = 888;
         snake[i].y = 888;
     }
-    
+
     //gateIn.x = -10, gateIn.y = -10;
 
     /*setColor(RED);
@@ -499,7 +513,7 @@ void ProcessGate() {
             gateOut = dummyGate;
         }
     }
-    
+
 }
 
 void SaveData() {
@@ -937,13 +951,422 @@ int Choose_Score()
     return 0;
 }
 
+void printLine(int n, char c) {
+    for (int i = 0; i < n; i++) {
+        cout << c;
+    }
+}
+
+void printColumn(int n, char c, int x, int y) {
+    GotoXY(x, y);
+
+    for (int i = y; i < n + y; ++i) {
+        cout << c;
+        GotoXY(x, i + 1);
+    }
+}
+
+void moveText(int x, int y, const string& text, int speed) {
+    for (char c : text) {
+        GotoXY(x++, y);
+        cout << c;
+        Sleep(speed);
+    }
+}
+
+void drawSnake(int x_snake, int y_snake) {
+    GotoXY(x_snake, y_snake++);
+    cout << "    --..,_                     _,.--.";
+    GotoXY(x_snake, y_snake++);
+    cout << "       `'.'.                .'`__ o  `;__.      ";
+    GotoXY(x_snake, y_snake++);
+    cout << "          '.'.            .'.'`  '---'`  `";
+    GotoXY(x_snake, y_snake++);
+    cout << "            '.`'--....--'`.'";
+    GotoXY(x_snake, y_snake++);
+    cout << "              `'--....--'`";
+}
+
+void clearScreen(int x_snake, int y_snake) {
+    for (int i = 0; i < 5; i++) {
+        GotoXY(x_snake, y_snake + i);
+        cout << "                                          "; // Clear the previous drawing
+    }
+}
+
+void intro() {
+
+    // Clear screen
+    system("cls");
+
+    int x = 20;
+    int x_team = 33;
+    int x_name = 50;
+    int x_snake = 1;
+    int y_snake = 22;
+    int y_name = 26;
+    int y = 1;
+
+    //title
+    setColor(LIGHTBLUE);
+    GotoXY(x - 5, y++);
+    cout << char(218);
+    printLine(93, char(196));
+    cout << char(191);
+    GotoXY(x, y++);
+    cout << " _______  ______   _______  ___ ___  _______     _______  _______  ___ ___  _______ ";
+    GotoXY(x, y++);
+    cout << "|   _   ||   _  \\ |   _   ||   Y   )|   _   |   |   _   ||   _   ||   Y   ||   _   |";
+    GotoXY(x, y++);
+    cout << "|   1___||.  |   ||.  1   ||.  1  / |.  1___|   |.  |___||.  1   ||.      ||.  1___|";
+    GotoXY(x, y++);
+    cout << "|____   ||.  |   ||.  _   ||.  _  \\ |.  __)_    |.  |   ||.  _   ||. \\_/  ||.  __)_ ";
+    GotoXY(x, y++);
+    cout << "|:  1   ||:  |   ||:  |   ||:  |   \\|:  1   |   |:  1   ||:  |   ||:  |   ||:  1   |";
+    GotoXY(x, y++);
+    cout << "|::.. . ||::.|   ||::.|:. ||::.| .  )::.. . |   |::.. . ||::.|:. ||::.|:. ||::.. . |";
+    GotoXY(x, y++);
+    cout << "`-------'`--- ---'`--- ---'`--- ---'`-------'   `-------'`--- ---'`--- ---'`-------'";
+    GotoXY(x - 5, y++);
+    cout << char(192);
+    printLine(93, char(196));
+    cout << char(217);
+    Sleep(1000);
+
+    //team
+    setColor(RED);
+    GotoXY(x_team, y++);
+    cout << "   .-') _     ('-.   ('-.     _   .-')                    ";
+    GotoXY(x_team, y++);
+    cout << "  (  OO) )  _(  OO) ( OO ).-.( '.( OO )_                  ";
+    GotoXY(x_team, y++);
+    cout << "  /     '._(,------./ . --. / ,--.   ,--.)       .-----.  ";
+    GotoXY(x_team, y++);
+    cout << "  |'--...__)|  .---'| \\-.  \\  |   `.'   |       / ,-.   \\ ";
+
+
+    GotoXY(x_team - 13, y++);
+    printLine(13, char(196));
+    cout << "  '--.  .--'|  |  .-'-'  |  | |         |       '-'  |  | ";
+    printLine(13, char(196));
+
+    GotoXY(x_team - 13, y++);
+    printLine(13, char(196));
+    cout << "     |  |  (|  '--.\\| |_.'  | |  |'.'|  |          .'  /  ";
+    printLine(13, char(196));
+
+    GotoXY(x_team, y++);
+    cout << "     |  |   |  .--' |  .-.  | |  |   |  |        .'  /__  ";
+    GotoXY(x_team, y++);
+    cout << "     |  |   |  `---.|  | |  | |  |   |  |       |       | ";
+    GotoXY(x_team, y++);
+    cout << "     `--'   `------'`--' `--' `--'   `--'       `-------' ";
+
+    //snake
+    setColor(PURPLE);
+    int count = 0;
+    while (count < 78) {
+        drawSnake(x_snake, y_snake);
+        Sleep(40);
+        clearScreen(x_snake, y_snake);
+        x_snake++; // Move to the right
+        count++;
+    }
+
+    string instructor = "INSTRUCTOR: TRUONG TOAN THINH";
+    string university = "UNIVERSITY OF SCIENCE";
+    moveText(x_name, y_name++, instructor, 50);
+    moveText(x_name + 4, y_name++, university, 50);
+
+    Sleep(2000);
+    system("cls");
+}
+
+void menu() {
+
+    system("cls");
+
+    int x = 48, y = 9;
+    int xmove = 48;
+    int ymove = 9;
+    int x_menu = 32;
+    int y_menu = 1;
+    char c;
+
+    int x_snake1 = 4;
+    int y_snake1 = 3;
+    int x_snake2 = 100;
+    int y_snake2 = 3;
+
+
+    setColor(LIGHTBLUE);
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177;
+    cout << (char)178 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << "     ";
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << "     ";
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)178 << (char)177 << (char)176 << " ";
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << "     ";
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << "     ";
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    GotoXY(x_menu, y_menu++);
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)177 << (char)178 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)178 << (char)177;
+    cout << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)178 << (char)177 << (char)176 << (char)176 << (char)177 << (char)178 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)219 << (char)178 << (char)177 << (char)176;
+
+    //snake1
+    GotoXY(x_snake1, y_snake1++);
+    cout << "       __";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "      {0O}";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "      \\__/";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "      /^/";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "     ( (              ";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "     \\_\\_____";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "     (_______)";
+    GotoXY(x_snake1, y_snake1++);
+    cout << "    (_________()Oo";
+
+    //snake2
+    GotoXY(x_snake2, y_snake2++);
+    cout << "           __";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "          {O0}";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "          \\__/";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "           \\^\\";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "            ) )        ";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "      _____/_/";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "     (_______)";
+    GotoXY(x_snake2, y_snake2++);
+    cout << "oO()_________)";
+
+
+    setColor(GREY);
+    GotoXY(x_menu, 8);
+    printLine(59, char(254));
+    GotoXY(x_menu, 29);
+    printLine(59, char(254));
+    GotoXY(x_menu, 9);
+    printColumn(20, char(254), x_menu, 9);
+    printColumn(20, char(254), x_menu + 58, 9);
+    GotoXY(x_menu + 1, 27);
+    printLine(57, char(196));
+    GotoXY(x_menu + 2, 28);
+    cout << "PRESS <W>/<S> TO MOVE UP/ DOWM. PRESS <ENTER> TO CHOOSE";
+
+
+    int check = 0;
+    while (true)
+    {
+        setColor(LIGHTBLUE);
+
+        //new game
+        GotoXY(x + 2, 9);
+        cout << (char)201 << (char)187 << (char)201 << (char)201 << (char)205 << (char)187 << (char)203 << " " << (char)203 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)201 << (char)205 << (char)187;
+        GotoXY(x + 2, 10);
+        cout << (char)186 << (char)186 << (char)186 << (char)186 << (char)185 << " " << (char)186 << (char)186 << (char)186 << "  " << (char)186 << " " << (char)203 << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << (char)186 << (char)186 << (char)185;
+        GotoXY(x + 2, 11);
+        cout << (char)188 << (char)200 << (char)188 << (char)200 << (char)205 << (char)188 << (char)200 << (char)202 << (char)188 << "  " << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)188;
+
+        //load game
+        GotoXY(x + 1, 12);
+        cout << (char)203 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)201 << (char)205 << (char)187;
+        GotoXY(x + 1, 13);
+        cout << (char)186 << "  " << (char)186 << " " << (char)186 << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << (char)186 << "  " << (char)186 << " " << (char)203 << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << (char)186 << (char)186 << (char)185;
+        GotoXY(x + 1, 14);
+        cout << (char)202 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << (char)205 << (char)202 << (char)188 << "  " << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)188;
+
+        //high score 
+        GotoXY(x, 15);
+        cout << (char)203 << " " << (char)203 << (char)203 << (char)201 << (char)205 << (char)187 << (char)203 << " " << (char)203 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187;
+        GotoXY(x, 16);
+        cout << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << " " << (char)203 << (char)204 << (char)205 << (char)185 << "  " << (char)200 << (char)205 << (char)187 << (char)186 << "  " << (char)186 << " " << (char)186 << (char)204 << (char)203 << (char)188 << (char)186 << (char)185;
+        GotoXY(x, 17);
+        cout << (char)202 << " " << (char)202 << (char)202 << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << "  " << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << (char)202 << (char)200 << (char)205 << (char)200 << (char)205 << (char)188;
+
+        //setting
+        GotoXY(x + 4, 18);
+        cout << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)201 << (char)203 << (char)187 << (char)203 << (char)201 << (char)187 << (char)201 << (char)201 << (char)205 << (char)187;
+        GotoXY(x + 4, 19);
+        cout << (char)200 << (char)205 << (char)187 << (char)186 << (char)185 << "  " << (char)186 << "  " << (char)186 << " " << (char)186 << (char)186 << (char)186 << (char)186 << (char)186 << " " << (char)203;
+        GotoXY(x + 4, 20);
+        cout << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << " " << (char)202 << "  " << (char)202 << " " << (char)202 << (char)188 << (char)200 << (char)188 << (char)200 << (char)205 << (char)188;
+
+        //introduction
+        GotoXY(x - 2, 21);
+        cout << (char)203 << (char)201 << (char)187 << (char)201 << (char)201 << (char)203 << (char)187 << (char)203 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)203 << " " << (char)203 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)203 << (char)201 << (char)205 << (char)187 << (char)201 << (char)187 << (char)201;
+        GotoXY(x - 2, 22);
+        cout << (char)186 << (char)186 << (char)186 << (char)186 << " " << (char)186 << " " << (char)204 << (char)203 << (char)188 << (char)186 << " " << (char)186 << " " << (char)186 << (char)186 << (char)186 << " " << (char)186 << (char)186 << "   " << (char)186 << " " << (char)186 << (char)186 << " " << (char)186 << (char)186 << (char)186 << (char)186;
+        GotoXY(x - 2, 23);
+        cout << (char)202 << (char)188 << (char)200 << (char)188 << " " << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)200 << (char)205 << (char)188 << (char)205 << (char)202 << (char)188 << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << " " << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)188 << (char)188 << (char)200 << (char)188;
+
+
+        //exit
+        GotoXY(x + 8, 24);
+        cout << (char)201 << (char)205 << (char)187 << (char)205 << (char)187 << " " << (char)203 << (char)203 << (char)201 << (char)203 << (char)187;
+        GotoXY(x + 8, 25);
+        cout << (char)186 << (char)185 << " " << (char)201 << (char)202 << (char)203 << (char)188 << (char)186 << " " << (char)186;
+        GotoXY(x + 8, 26);
+        cout << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)200 << (char)205 << (char)202 << " " << (char)202;
+
+        if (_kbhit() == true)
+        {
+            c = _getch();
+            if (c == 'w' || c == 'W')
+            {
+                ymove -= 3;
+            }
+            if (c == 's' || c == 'S')
+            {
+                ymove += 3;
+            }
+            if (c == '\r')
+            {
+                if (ymove == 9)
+                {
+                    menu_choice = 1;
+                    system("cls");
+                    break;
+                }
+                else if (ymove == 12)
+                {
+                    menu_choice = 2;
+                    system("cls");
+                    break;
+                }
+                else if (ymove == 15)
+                {
+                    menu_choice = 3;
+                    system("cls");
+                    break;
+                }
+                else if (ymove == 18)
+                {
+                    menu_choice = 4;
+                    system("cls");
+                    break;
+                }
+                else if (ymove == 21)
+                {
+                    menu_choice = 5;
+                    system("cls");
+                    break;
+                }
+                else if (ymove == 24)
+                {
+                    menu_choice = 6;
+                    system("cls");
+                    break;
+                }
+            }
+        }
+        if (ymove < 9)
+            ymove = 24;
+        else if (ymove > 24)
+            ymove = 9;
+        if (ymove == 9)
+        {
+            setColor(PURPLE);
+            GotoXY(xmove + 2, ymove);
+            cout << (char)201 << (char)187 << (char)201 << (char)201 << (char)205 << (char)187 << (char)203 << " " << (char)203 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)201 << (char)205 << (char)187;
+            GotoXY(xmove + 2, ymove + 1);
+            cout << (char)186 << (char)186 << (char)186 << (char)186 << (char)185 << " " << (char)186 << (char)186 << (char)186 << "  " << (char)186 << " " << (char)203 << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << (char)186 << (char)186 << (char)185;
+            GotoXY(xmove + 2, ymove + 2);
+            cout << (char)188 << (char)200 << (char)188 << (char)200 << (char)205 << (char)188 << (char)200 << (char)202 << (char)188 << "  " << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)188;
+        }
+        if (ymove == 12)
+        {
+            setColor(PURPLE);
+            GotoXY(xmove + 1, ymove);
+            cout << (char)203 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)201 << (char)205 << (char)187;
+            GotoXY(xmove + 1, ymove + 1);
+            cout << (char)186 << "  " << (char)186 << " " << (char)186 << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << (char)186 << "  " << (char)186 << " " << (char)203 << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << (char)186 << (char)186 << (char)185;
+            GotoXY(xmove + 1, ymove + 2);
+            cout << (char)202 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << (char)205 << (char)202 << (char)188 << "  " << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)188;
+
+        }
+        if (ymove == 15)
+        {
+            setColor(PURPLE);
+            GotoXY(xmove, ymove);
+            cout << (char)203 << " " << (char)203 << (char)203 << (char)201 << (char)205 << (char)187 << (char)203 << " " << (char)203 << "  " << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187;
+            GotoXY(xmove, ymove + 1);
+            cout << (char)204 << (char)205 << (char)185 << (char)186 << (char)186 << " " << (char)203 << (char)204 << (char)205 << (char)185 << "  " << (char)200 << (char)205 << (char)187 << (char)186 << "  " << (char)186 << " " << (char)186 << (char)204 << (char)203 << (char)188 << (char)186 << (char)185;
+            GotoXY(xmove, ymove + 2);
+            cout << (char)202 << " " << (char)202 << (char)202 << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)202 << "  " << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << (char)202 << (char)200 << (char)205 << (char)200 << (char)205 << (char)188;
+
+        }
+        if (ymove == 18)
+        {
+            setColor(PURPLE);
+            GotoXY(xmove + 4, ymove);
+            cout << (char)201 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)201 << (char)203 << (char)187 << (char)203 << (char)201 << (char)187 << (char)201 << (char)201 << (char)205 << (char)187;
+            GotoXY(xmove + 4, ymove + 1);
+            cout << (char)200 << (char)205 << (char)187 << (char)186 << (char)185 << "  " << (char)186 << "  " << (char)186 << " " << (char)186 << (char)186 << (char)186 << (char)186 << (char)186 << " " << (char)203;
+            GotoXY(xmove + 4, ymove + 2);
+            cout << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << " " << (char)202 << "  " << (char)202 << " " << (char)202 << (char)188 << (char)200 << (char)188 << (char)200 << (char)205 << (char)188;
+
+        }
+        if (ymove == 21)
+        {
+            setColor(PURPLE);
+            GotoXY(xmove - 2, ymove);
+            cout << (char)203 << (char)201 << (char)187 << (char)201 << (char)201 << (char)203 << (char)187 << (char)203 << (char)205 << (char)187 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)203 << " " << (char)203 << (char)201 << (char)205 << (char)187 << (char)201 << (char)203 << (char)187 << (char)203 << (char)201 << (char)205 << (char)187 << (char)201 << (char)187 << (char)201;
+            GotoXY(xmove - 2, ymove + 1);
+            cout << (char)186 << (char)186 << (char)186 << (char)186 << " " << (char)186 << " " << (char)204 << (char)203 << (char)188 << (char)186 << " " << (char)186 << " " << (char)186 << (char)186 << (char)186 << " " << (char)186 << (char)186 << "   " << (char)186 << " " << (char)186 << (char)186 << " " << (char)186 << (char)186 << (char)186 << (char)186;
+            GotoXY(xmove - 2, ymove + 2);
+            cout << (char)202 << (char)188 << (char)200 << (char)188 << " " << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)200 << (char)205 << (char)188 << (char)205 << (char)202 << (char)188 << (char)200 << (char)205 << (char)188 << (char)200 << (char)205 << (char)188 << " " << (char)202 << " " << (char)202 << (char)200 << (char)205 << (char)188 << (char)188 << (char)200 << (char)188;
+        }
+        if (ymove == 24)
+        {
+            setColor(PURPLE);
+            GotoXY(xmove + 8, ymove);
+            cout << (char)201 << (char)205 << (char)187 << (char)205 << (char)187 << " " << (char)203 << (char)203 << (char)201 << (char)203 << (char)187;
+            GotoXY(xmove + 8, ymove + 1);
+            cout << (char)186 << (char)185 << " " << (char)201 << (char)202 << (char)203 << (char)188 << (char)186 << " " << (char)186;
+            GotoXY(xmove + 8, ymove + 2);
+            cout << (char)200 << (char)205 << (char)188 << (char)202 << " " << (char)200 << (char)205 << (char)202 << " " << (char)202;
+
+        }
+        Sleep(100);
+    }
+}
+
 int main() {
     system("color F0");
-    int temp;
     FixConsoleWindow();
     ShowConsoleCursor(false);
+    SetConsoleCP(437);
+    SetConsoleOutputCP(437);
+
+    int temp;
     bool TurnOnThread = false;
 
+    intro();
     //StartGame();
     //setcursor(0, 0);  //!!!
     //if (TurnOnThread == false)
@@ -955,81 +1378,116 @@ int main() {
 
     //}
 
-    int choose = 0;
-MENU:
+    menu();
+    if (menu_choice == 1)
     {
-        ChooseMenu(choose);
-        if (choose == 0)
-        {
+        StartGame();
+        DrawSnake(ID_STUDENT);
+        while (true) {
+            temp = toupper(_getch()); // ???
+            if (STATE == 1) {
+                if (temp == 'P') {
+                    PauseGame(handle_t1);
+                }
 
-            StartGame();
-            DrawSnake(ID_STUDENT);
-            while (true) {
-                temp = toupper(_getch()); // ???
-                if (STATE == 1) {
-                    if (temp == 'P') {
-                        PauseGame(handle_t1);
-                    }
+                else if (temp == 'L') {
+                    SaveData();
+                    ExitGame(handle_t1);
+                    return 0;
+                }
 
-                    else if (temp == 'L') {
-                        SaveData();
-                    }
+                else if (temp == 'T') {
+                    LoadData();
+                }
 
-                    else if (temp == 'T') {
-                        LoadData();
-                    }
-
-                    else if (temp == 27) { // 27 is ASCII value of 'ESC' key
-                        ExitGame(handle_t1);
-                        return 0;
-                    }
-                    else {
-                        ResumeThread(handle_t1);
-
-                        //Logic of snake's move
-                        if (isValidKey(temp)) {
-                            if (temp == 'D')
-                                CHAR_LOCK = 'A';
-                            else if (temp == 'A')
-                                CHAR_LOCK = 'D';
-                            else if (temp == 'W')
-                                CHAR_LOCK = 'S';
-                            else
-                                CHAR_LOCK = 'W';
-                            MOVING = temp;
-                        }
-                    }
+                else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                    ExitGame(handle_t1);
+                    return 0;
                 }
                 else {
-                    if (temp == 'Y')
-                        StartGame();
-                    else if (temp == 13)
-                    {
-                        PauseGame(handle_t1);
-                        DrawSnake(ID_STUDENT);
-                        goto MENU;
-                    }
-                    else
-                    {
-                        ExitGame(handle_t1);
-                        return 0;
+                    ResumeThread(handle_t1);
+
+                    //Logic of snake's move
+                    if (isValidKey(temp)) {
+                        if (temp == 'D')
+                            CHAR_LOCK = 'A';
+                        else if (temp == 'A')
+                            CHAR_LOCK = 'D';
+                        else if (temp == 'W')
+                            CHAR_LOCK = 'S';
+                        else
+                            CHAR_LOCK = 'W';
+                        MOVING = temp;
                     }
                 }
             }
+            else {
+                if (temp == 'Y')
+                    StartGame();
+                else if (temp == 13)
+                {
+                    PauseGame(handle_t1);
+                    DrawSnake(ID_STUDENT);
+                    menu();
+                }
+                else
+                {
+                    ExitGame(handle_t1);
+                    return 0;
+                }
+            }
+        }
+    }
+    else if (menu_choice == 2)
+    {
+        Choose_Score();
+        menu();
+    }
+    else if (menu_choice == 3)
+    {
+        system("cls");
+        cout << "WILL BE UPDATED SOON";
+        while (true)
+        {
+            if (_kbhit())
+            {
+                int temp = toupper(_getch());
+                if (temp == 27)
+                    break;
+            }
+        }
 
-        }
-        else if (choose == 1)
+    }
+    else if (menu_choice == 4)
+    {
+        cout << "WILL BE UPDATED SOON";
+        while (true)
         {
-            Choose_Option();
-            goto MENU;
+            if (_kbhit())
+            {
+                int temp = toupper(_getch());
+                if (temp == 27)
+                    break;
+            }
         }
-        else if (choose == 2)
+
+    }
+    else if (menu_choice == 5)
+    {
+        cout << "WILL BE UPDATED SOON";
+        while (true)
         {
-            Choose_Score();
-            goto MENU;
+            if (_kbhit())
+            {
+                int temp = toupper(_getch());
+                if (temp == 27)
+                    break;
+            }
         }
-        else if (choose == 3)
-            ExitGame(handle_t1);
+    }
+    else if (menu_choice == 6) {
+        ExitGame(handle_t1);
+        return 0;
     }
     return 0;
 }
