@@ -5,7 +5,8 @@
 #include <cctype>
 #include <mmsystem.h>
 #include <string>
-#include "fixconsolewindows.h" //Visual Studio
+#include <fstream>
+#include "fixconsolewindows.h"
 
 #pragma comment(lib, "winmm.lib")
 
@@ -104,7 +105,7 @@ void ResetData() {
     snake[0] = { 10, 5 }; snake[1] = { 11, 5 };
     snake[2] = { 12, 5 }; snake[3] = { 13, 5 };
     snake[4] = { 14, 5 }; snake[5] = { 15, 5 };
-    GenerateFood();//Create food array
+    //GenerateFood();//Create food array, already created in StartGame() func
 }
 
 bool IsValidGate(int x, int y) {
@@ -125,6 +126,23 @@ bool IsValidGate(int x, int y) {
 }
 
 
+void DrawGateIn() {
+    //Draw
+    int x = gateIn.x;
+    int y = gateIn.y;
+    setColor(RED);
+    GotoXY(x - 1, y);
+    cout << (char)201;
+    setColor(GOLDEN);
+    cout << 'O';
+    setColor(RED);
+    cout << (char)187;
+    GotoXY(x - 1, y + 1);
+    cout << (char)202;
+    GotoXY(x + 1, y + 1);
+    cout << (char)202;
+}
+
 void GenerateGateIn() {
     int x, y = 0; // Fix the gateIn on the top-border
     srand(time(NULL));
@@ -137,19 +155,7 @@ void GenerateGateIn() {
     gateIn.x = x;
     gateIn.y = y;
 
-    //Draw
-    setColor(RED);
-    GotoXY(x - 1, y);
-    cout << (char)201;
-    setColor(GOLDEN);
-    cout << 'O';
-    setColor(RED);
-    cout << (char)187;
-    GotoXY(x - 1, y + 1);
-    cout << (char)202;
-    GotoXY(x + 1, y + 1);
-    cout << (char)202;
-    //setColor(WHITE);
+    DrawGateIn();
 }
 
 void GenerateGateOut() {
@@ -315,6 +321,59 @@ void ProcessDead() {
     //setColor(WHITE);
 }
 
+void wallGeneration() {
+    setColor(RED);
+    numsOfWalls = 0;
+
+    switch (Level) {
+    case 2:
+    {
+        wall[0] = { 28,7 };
+        for (int i = 28; i <= 42; i++) {
+            wall[numsOfWalls++] = { i,7 };
+            GotoXY(i, 7);
+            cout << (char)254;
+        }
+
+        for (int i = 28; i <= 42; i++) {
+            wall[numsOfWalls++] = { i, 13 };
+            GotoXY(i, 13);
+            cout << (char)254;
+        }
+        break;
+    }
+    case 3:
+    {
+        int j = 10;
+        for (int i = 15; i <= 20; i++) {
+            GotoXY(i, j);
+            cout << (char)174;
+            wall[numsOfWalls++] = { i, j-- };
+        }
+        for (int i = 16; i <= 20; i++) {
+            GotoXY(i, i - 5);
+            cout << (char)174;
+            wall[numsOfWalls++] = { i,i - 5 };
+        }
+        for (int i = 50; i <= 55; i++) {
+            GotoXY(i, i - 45);
+            cout << (char)175;
+            wall[numsOfWalls++] = { i,i - 45 };
+        }
+        j = 15;
+        for (int i = 50; i <= 54; i++) {
+            GotoXY(i, j);
+            cout << (char)175;
+            wall[numsOfWalls++] = { i, j-- };
+        }
+        break;
+    }
+        default:
+            break;
+    }
+ 
+}
+
 void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
     system("cls");
     CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = false; isNextLevel = false;
@@ -332,7 +391,7 @@ void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY =
     
     //gateIn.x = -10, gateIn.y = -10;
 
-    setColor(RED);
+    /*setColor(RED);
     numsOfWalls = 0;
     wall[0] = { 28,7 };
     for (int i = 28; i <= 42; i++) {
@@ -345,7 +404,8 @@ void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         wall[numsOfWalls++] = { i, 13 };
         GotoXY(i, 13);
         cout << (char)254;
-    }
+    }*/
+    wallGeneration();
     GenerateFood();
 }
 
@@ -364,7 +424,7 @@ void Level_3(int x, int y, int width, int height, int curPosX = 0, int curPosY =
     }
     //gateIn.x = -10, gateIn.y = -10;
 
-    setColor(RED);
+    /*setColor(RED);
     numsOfWalls = 0;
     int j = 10;
     for (int i = 15; i <= 20; i++) {
@@ -387,7 +447,8 @@ void Level_3(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         GotoXY(i, j);
         cout << (char)175;
         wall[numsOfWalls++] = { i, j-- };
-    }
+    }*/
+    wallGeneration();
     GenerateFood();
 }
 
@@ -441,6 +502,152 @@ void ProcessGate() {
     
 }
 
+void SaveData() {
+    string FileName;
+
+    int column = 30;
+    int row = 8;
+    int xgame = (WIDTH_CONSOLE / 2) - 15;
+    int ygame = (HEIGHT_CONSOLE / 2) - 3;
+
+    setColor(PURPLE);
+    for (int i = 0; i < row; i++)
+    {
+        GotoXY(xgame, ygame + i);
+        for (int j = 0; j < column; j++)
+        {
+            if (i == 0)
+                cout << (unsigned char)220;
+            else if (i == row - 1)
+                cout << (unsigned char)223;
+            else if (j == 0 || j == column - 1)
+                cout << (unsigned char)219;
+            else
+                cout << " ";
+        }
+    }
+
+    GotoXY(xgame + 9, ygame + 2);
+    cout << "Save and Exit";
+    GotoXY(xgame + 14, ygame + 5);
+    GotoXY(xgame + 3, ygame + 3);
+    cout << "Name: ";
+
+    cin >> FileName;
+
+    ofstream fo(".\\Data\\" + FileName);
+
+    ofstream f_user;
+    f_user.open(".\\Data\\username.txt", ios::app);
+    f_user << FileName << endl;
+    f_user.close();
+
+    fo << SIZE_SNAKE << " " << endl;
+
+    for (int i = 0; i < SIZE_SNAKE; i++)
+        fo << snake[i].x << " " << snake[i].y << endl;
+
+    fo << FOOD_INDEX << endl;
+
+    for (int i = 0; i < 4; i++)
+        fo << food[i].x << " " << food[i].y << endl;
+
+    fo << Level << endl;
+
+    if (isNextLevel)
+        fo << gateIn.x << endl;
+    else
+        fo << -10 << endl;
+
+    fo << MOVING << endl;
+
+    fo << SPEED << endl;
+
+    fo.close();
+}
+
+void LoadData() {
+    string FileName;
+    int column = 30;
+    int row = 8;
+    int xgame = (WIDTH_CONSOLE / 2) - 15;
+    int ygame = (HEIGHT_CONSOLE / 2) - 3;
+
+    setColor(PURPLE);
+    for (int i = 0; i < row; i++)
+    {
+        GotoXY(xgame, ygame + i);
+        for (int j = 0; j < column; j++)
+        {
+            if (i == 0)
+                cout << (unsigned char)220;
+            else if (i == row - 1)
+                cout << (unsigned char)223;
+            else if (j == 0 || j == column - 1)
+                cout << (unsigned char)219;
+            else
+                cout << " ";
+        }
+    }
+
+    GotoXY(xgame + 11, ygame + 2);
+    cout << "Load data";
+    GotoXY(xgame + 14, ygame + 5);
+    GotoXY(xgame + 3, ygame + 3);
+    cout << "Name: ";
+
+    cin >> FileName;
+
+    //Start saved game
+    system("cls");
+    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE); //Draw game
+    STATE = 1; //Start
+
+    /*for (int i = 0; i < SIZE_SNAKE; i++)
+    {
+        GotoXY(snake[i].x, snake[i].y);
+        cout << " ";
+    }*/
+
+    ifstream fi(".\\Data\\" + FileName);
+
+    fi >> SIZE_SNAKE;
+
+    for (int i = 0; i < SIZE_SNAKE; i++)
+        fi >> snake[i].x >> snake[i].y;
+
+    fi >> FOOD_INDEX;
+
+    //GotoXY(food[FOOD_INDEX].x, food[FOOD_INDEX].y);
+
+    //cout << " ";
+    for (int i = 0; i < MAX_SIZE_FOOD; i++)
+        fi >> food[i].x >> food[i].y;
+
+    fi >> Level;
+    wallGeneration(); //only call when Level is updated
+
+    int gateInX;
+
+    fi >> gateInX;
+
+    if (gateInX != -10) { //gateIn exist, or isNextLevel == true
+        isNextLevel = true;
+        gateIn.x = gateInX;
+        gateIn.y = 0;
+        DrawGateIn();
+    }
+    else {
+        isNextLevel = false;
+    }
+
+    fi >> MOVING;
+
+    fi >> SPEED;
+
+    fi.close();
+}
+
 bool hitObstacle(POINT newPoint) {
     //Enter Gate
     if (matchCoordinate(newPoint, gateIn))
@@ -474,9 +681,6 @@ bool hitObstacle(POINT newPoint) {
     }
 
     return false;
-
-
-
 }
 
 
@@ -766,6 +970,15 @@ MENU:
                     if (temp == 'P') {
                         PauseGame(handle_t1);
                     }
+
+                    else if (temp == 'L') {
+                        SaveData();
+                    }
+
+                    else if (temp == 'T') {
+                        LoadData();
+                    }
+
                     else if (temp == 27) { // 27 is ASCII value of 'ESC' key
                         ExitGame(handle_t1);
                         return 0;
