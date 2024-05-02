@@ -80,6 +80,9 @@ string ID_STUDENT = "2312019323120194231201952312020023120209";
 bool isPlayedGameOverSound;//use to determine whether the "game-over sound" is played or not
 bool isNextLevel;//use to determine whether the entering gate is generated or not
 int menu_choice;
+bool gameIsPaused;
+bool backgroundMusic;
+int volume = 0;
 
 bool IsValidFood(int x, int y) {
     //Body
@@ -238,12 +241,42 @@ void PauseGame(HANDLE t) {
     SuspendThread(t);
 }
 
+void setVolume()
+{
+    if (volume != 0)
+        volume = 0;
+    else
+        volume = 65535;
+
+    DWORD dwSpeakers = (DWORD)-1;
+    DWORD dwVolume;
+    BOOL bSuccess = FALSE;
+
+    bSuccess = waveOutGetVolume((HWAVEOUT)dwSpeakers, &dwVolume);
+
+    waveOutSetVolume((HWAVEOUT)dwSpeakers, (DWORD)volume);
+
+}
+
 void PlayEatingSound() {
     PlaySound(TEXT("retro-coin-02.wav"), NULL, SND_FILENAME | SND_ASYNC);
 }
 
 void PlayGameOverSound() {
     PlaySound(TEXT("game-over.wav"), NULL, SND_FILENAME | SND_ASYNC);
+}
+
+void PlayBGM() {
+    while (true) {
+        if (backgroundMusic == true) {
+            PlaySound(TEXT("BGM.wav"), NULL, SND_FILENAME | SND_ASYNC);
+            backgroundMusic = false;
+        }
+    }
+}
+
+void PlayChooseSound() {
+    PlaySound(TEXT("choose"), NULL, SND_FILENAME | SND_ASYNC);
 }
 
 void ClearFood() {
@@ -1081,7 +1114,7 @@ void menu() {
 
     int x = 48, y = 9;
     int xmove = 48;
-    int ymove = 9;
+    static int ymove = 9;
     int x_menu = 32;
     int y_menu = 1;
     char c;
@@ -1351,10 +1384,13 @@ void menu() {
 
 int main() {
     system("color F0");
-    FixConsoleWindow();
+    fixconsolewindows();
+    backgroundMusic = true;
+    setVolume();
+    /*FixConsoleWindow();
     ShowConsoleCursor(false);
     SetConsoleCP(437);
-    SetConsoleOutputCP(437);
+    SetConsoleOutputCP(437);*/
 
     int temp;
     bool TurnOnThread = false;
@@ -1368,176 +1404,219 @@ int main() {
     HANDLE handle_t1 = t1.native_handle(); //Take handle of thread
 
     PauseGame(handle_t1);
+    thread BGM(PlayBGM);
+    HANDLE handle_BGM = BGM.native_handle();
+    BGM.detach();
 
     //}
 
-    menu();
-    if (menu_choice == 1)
+MENU:
     {
-        StartGame();
-        DrawSnake(ID_STUDENT);
-        while (true) {
-            temp = toupper(_getch()); // ???
-            if (STATE == 1) {
-                if (temp == 'P') {
-                    PauseGame(handle_t1);
-                }
 
-                else if (temp == 'L') {
-                    SaveData();
-                    ExitGame(handle_t1);
-                    return 0;
-                }
+        menu();
+        gameIsPaused = true;
+        if (menu_choice == 1)
+        {
 
-                else if (temp == 'T') {
-                    LoadData();
-                }
+            StartGame();
+            DrawSnake(ID_STUDENT);
+            while (true) {
+                temp = toupper(_getch()); // ???
+                if (STATE == 1) {
+                    if (temp == 'P') {
+                        PauseGame(handle_t1);
+                        gameIsPaused = false;
+                    }
 
-                else if (temp == 27) { // 27 is ASCII value of 'ESC' key
-                    ExitGame(handle_t1);
-                    return 0;
+                    else if (temp == 'L') {
+                        SaveData();
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
+
+                    else if (temp == 'T') {
+                        LoadData();
+                    }
+
+                    else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                        if (gameIsPaused == true)
+                        {
+                            ExitGame(handle_t1);
+                            return 0;
+                        }
+                        else
+                        {
+                            PauseGame(handle_t1);
+                            SaveData();
+                            backgroundMusic = true;
+                            goto MENU;
+                        }
+                    }
+                    else {
+                        ResumeThread(handle_t1);
+
+                        //Logic of snake's move
+                        if (isValidKey(temp)) {
+                            if (temp == 'D')
+                                CHAR_LOCK = 'A';
+                            else if (temp == 'A')
+                                CHAR_LOCK = 'D';
+                            else if (temp == 'W')
+                                CHAR_LOCK = 'S';
+                            else
+                                CHAR_LOCK = 'W';
+                            MOVING = temp;
+                        }
+                    }
                 }
                 else {
-                    ResumeThread(handle_t1); //Wait the keyboard
-
-                    //Logic of snake's move
-                    if (isValidKey(temp)) {
-                        if (temp == 'D')
-                            CHAR_LOCK = 'A';
-                        else if (temp == 'A')
-                            CHAR_LOCK = 'D';
-                        else if (temp == 'W')
-                            CHAR_LOCK = 'S';
-                        else
-                            CHAR_LOCK = 'W';
-                        MOVING = temp;
+                    if (temp == 'Y')
+                        StartGame();
+                    else if (temp == 13)
+                    {
+                        PauseGame(handle_t1);
+                        DrawSnake(ID_STUDENT);
+                        //menu();
+                        goto MENU;
+                    }
+                    else
+                    {
+                        ExitGame(handle_t1);
+                        return 0;
                     }
                 }
             }
-            else {
-                if (temp == 'Y')
-                    StartGame();
-                else if (temp == 13)
-                {
-                    PauseGame(handle_t1);
-                    DrawSnake(ID_STUDENT);
-                    menu();
-                }
-                else
-                {
-                    ExitGame(handle_t1);
-                    return 0;
-                }
-            }
         }
-    }
-    else if (menu_choice == 2) //Load game
-    {
-        //Choose_Score(); ///!!!!
-        //menu();
-        StartGame();
-        LoadData();
-        DrawSnake(ID_STUDENT);
-        while (true) {
-            temp = toupper(_getch()); // ???
-            if (STATE == 1) {
-                if (temp == 'P') {
-                    PauseGame(handle_t1);
-                }
+        else if (menu_choice == 2) // Load game
+        {
+            backgroundMusic = true;
+            //Choose_Score(); ///!!!!
+            //menu();
+            StartGame();
+            LoadData();
+            DrawSnake(ID_STUDENT);
+            while (true) {
+                temp = toupper(_getch()); // ???
+                if (STATE == 1) {
+                    if (temp == 'P') {
+                        PauseGame(handle_t1);
+                    }
 
-                else if (temp == 'L') {
-                    SaveData();
-                    ExitGame(handle_t1);
-                    return 0;
-                }
+                    else if (temp == 'L') {
+                        SaveData();
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
 
-                else if (temp == 'T') {
-                    LoadData();
-                }
+                    else if (temp == 'T') {
+                        LoadData();
+                    }
 
-                else if (temp == 27) { // 27 is ASCII value of 'ESC' key
-                    ExitGame(handle_t1);
-                    return 0;
+                    else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
+                    else {
+                        ResumeThread(handle_t1);
+
+                        //Logic of snake's move
+                        if (isValidKey(temp)) {
+                            if (temp == 'D')
+                                CHAR_LOCK = 'A';
+                            else if (temp == 'A')
+                                CHAR_LOCK = 'D';
+                            else if (temp == 'W')
+                                CHAR_LOCK = 'S';
+                            else
+                                CHAR_LOCK = 'W';
+                            MOVING = temp;
+                        }
+                    }
                 }
                 else {
-                    ResumeThread(handle_t1);
-
-                    //Logic of snake's move
-                    if (isValidKey(temp)) {
-                        if (temp == 'D')
-                            CHAR_LOCK = 'A';
-                        else if (temp == 'A')
-                            CHAR_LOCK = 'D';
-                        else if (temp == 'W')
-                            CHAR_LOCK = 'S';
-                        else
-                            CHAR_LOCK = 'W';
-                        MOVING = temp;
+                    if (temp == 'Y')
+                        StartGame();
+                    else if (temp == 13)
+                    {
+                        PauseGame(handle_t1);
+                        DrawSnake(ID_STUDENT);
+                        menu();
+                    }
+                    else
+                    {
+                        ExitGame(handle_t1);
+                        return 0;
                     }
                 }
             }
-            else {
-                if (temp == 'Y')
-                    StartGame();
-                else if (temp == 13)
-                {
-                    PauseGame(handle_t1);
-                    DrawSnake(ID_STUDENT);
-                    menu();
-                }
-                else
-                {
-                    ExitGame(handle_t1);
-                    return 0;
-                }
-            }
+            ///goto MENU; ///!!!
         }
-    }
-    else if (menu_choice == 3)
-    {
-        system("cls");
-        cout << "WILL BE UPDATED SOON";
-        while (true)
+        else if (menu_choice == 3)
         {
-            if (_kbhit())
-            {
-                int temp = toupper(_getch());
-                if (temp == 27)
-                    break;
-            }
-        }
 
-    }
-    else if (menu_choice == 4)
-    {
-        cout << "WILL BE UPDATED SOON";
-        while (true)
-        {
-            if (_kbhit())
+            system("cls");
+            cout << "WILL BE UPDATED SOON";
+            while (true)
             {
-                int temp = toupper(_getch());
-                if (temp == 27)
-                    break;
+                if (_kbhit())
+                {
+                    int temp = toupper(_getch());
+                    if (temp == 27)
+                        break;
+                }
             }
+            backgroundMusic = true;
+            goto MENU;
         }
+        else if (menu_choice == 4)
+        {
+            if (volume != 0)
+                cout << "Type \'M\' to mute!";
+            else
+                cout << "Type \'M\' to unmute";
+            while (true)
+            {
 
-    }
-    else if (menu_choice == 5)
-    {
-        cout << "WILL BE UPDATED SOON";
-        while (true)
-        {
-            if (_kbhit())
-            {
-                int temp = toupper(_getch());
-                if (temp == 27)
-                    break;
+                if (_kbhit())
+                {
+                    int temp = toupper(_getch());
+                    if (temp == 27)
+                        break;
+                    else if (temp == 'M')
+                    {
+                        setVolume();
+                        system("cls");
+                        if (volume != 0)
+                            cout << "Type \'M\' to mute!";
+                        else
+                            cout << "Type \'M\' to unmute";
+                    }
+                }
             }
+            backgroundMusic = true;
+            goto MENU;
         }
-    }
-    else if (menu_choice == 6) {
-        ExitGame(handle_t1);
-        return 0;
-    }
+        else if (menu_choice == 5)
+        {
+
+            cout << "WILL BE UPDATED SOON";
+            while (true)
+            {
+                if (_kbhit())
+                {
+                    int temp = toupper(_getch());
+                    if (temp == 27)
+                        break;
+                }
+            }
+            backgroundMusic = true;
+            goto MENU;
+        }
+        else if (menu_choice == 6) {
+
+            ExitGame(handle_t1);
+            return 0;
+        }
+    }   
     return 0;
 }
