@@ -1272,6 +1272,7 @@ void menu() {
             }
             if (c == '\r')
             {
+                PlayChooseSound();
                 if (ymove == 9)
                 {
                     menu_choice = 1;
