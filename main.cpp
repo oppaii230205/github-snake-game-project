@@ -19,23 +19,6 @@ void FixConsoleWindow() {
     SetWindowLong(consoleWindow, GWL_STYLE, style);
 }
 
-bool matchCoordinate(POINT A, POINT B) {
-    return (A.x == B.x && A.y == B.y);
-}
-
-//Constants
-#define MAX_SIZE_SNAKE 40
-#define MAX_SIZE_FOOD 4
-#define MAX_LEVEL 4
-#define BLACK 240
-#define LIGHTBLUE 243
-#define RED 244
-#define PURPLE 245
-#define GOLDEN 246
-#define GREY 247
-#define GREEN 250
-#define WHITE 255
-
 void GotoXY(int x, int y) {
     COORD coord;
     coord.X = x;
@@ -59,20 +42,33 @@ void setColor(WORD color)
     SetConsoleTextAttribute(hConsoleOutput, wAttributes);
 }
 
+bool matchCoordinate(POINT A, POINT B) {
+    return (A.x == B.x && A.y == B.y);
+}
+
+//Constants
+#define MAX_SIZE_SNAKE 40
+#define MAX_SIZE_FOOD 4
+#define MAX_LEVEL 3
+#define BLACK 240
+#define LIGHTBLUE 243
+#define RED 244
+#define PURPLE 245
+#define GOLDEN 246
+#define GREY 247
+#define GREEN 250
+#define WHITE 255
+
+
 //Global variables
 POINT snake[MAX_SIZE_SNAKE]; //snake
 POINT food[MAX_SIZE_FOOD]; // food
 POINT gateIn; //snake will enter this gate
 POINT gateOut; //snake will go from this gate when moving to next level
+POINT dummyGate = { -10, -10 };
 int numsOfWalls; //use with array wall[] to create the obstacles for each level
 int Level; //use to determine the level at some point
-int checkMoney = 0;
-int checkBomb = 0;
-POINT money;
-POINT bombs;
-int Food; //count food that the snake has eaten at current level
-POINT dummyGate = { -10, -10 };
-POINT wall[200]; //array of obstacles
+POINT wall[50]; //array of obstacles
 int CHAR_LOCK;//used to determine the direction my snake cannot move (At a moment, there is one direction my snake cannot move to)
 int MOVING;//used to determine the direction my snake moves (At a moment, there are three directions my snake can move)
 int SPEED;// Standing for level, the higher the level, the quicker the speed
@@ -80,12 +76,13 @@ int HEIGHT_CONSOLE, WIDTH_CONSOLE;// Width and height of console-screen
 int FOOD_INDEX; // current food-index
 int SIZE_SNAKE; // size of snake, initially maybe 6 units and maximum size may be 10
 int STATE; // State of snake: dead or alive
-int SCORE;
 string ID_STUDENT = "2312019323120194231201952312020023120209";
 bool isPlayedGameOverSound;//use to determine whether the "game-over sound" is played or not
 bool isNextLevel;//use to determine whether the entering gate is generated or not
 int menu_choice;
-
+bool gameIsPaused;
+bool backgroundMusic;
+int volume = 0;
 
 bool IsValidFood(int x, int y) {
     //Body
@@ -102,44 +99,7 @@ bool IsValidFood(int x, int y) {
         }
     }
 
-
-
     return true;
-}
-
-void GenerateMoney() {
-    if (Level == 1 || FOOD_INDEX != 2 || checkMoney >= 1)
-        return;
-    int x, y;
-    srand(time(NULL));
-    do {
-        x = rand() % (WIDTH_CONSOLE - 1) + 1;
-        y = rand() % (HEIGHT_CONSOLE - 1) + 1;
-    } while (IsValidFood(x, y) == false);
-    money = { x,y };
-    setColor(GOLDEN);
-    GotoXY(money.x, money.y);
-    cout << '$';
-    checkMoney++;
-}
-
-void GenerateBomb() {
-    if (Level == 1 || Level == 2 || FOOD_INDEX != 1 || checkBomb >= 1)
-        return;
-    int x, y;
-    srand(time(NULL));
-    do {
-        x = rand() % (WIDTH_CONSOLE - 1) + 1;
-        y = rand() % (HEIGHT_CONSOLE - 1) + 1;
-    } while (IsValidFood(x, y) == false);
-
-    bombs = { x,y };
-    setColor(RED);
-    GotoXY(bombs.x, bombs.y);
-    cout << (char)219;
-    GotoXY(bombs.x, bombs.y - 1);
-    cout << (char)218;
-    checkBomb++;
 }
 
 void GenerateFood() {
@@ -150,18 +110,19 @@ void GenerateFood() {
             x = rand() % (WIDTH_CONSOLE - 1) + 1;
             y = rand() % (HEIGHT_CONSOLE - 1) + 1;
         } while (IsValidFood(x, y) == false);
+
         food[i] = { x,y };
     }
 }
 
 void ResetData() {
     //Initialize the global values //width 70 height 20
-    CHAR_LOCK = 'A', MOVING = 'D', SPEED = 1; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20, SIZE_SNAKE = 4; isPlayedGameOverSound = isNextLevel = false; Level = 1; numsOfWalls = 0; SCORE = 0; Level = 1; Food = 0;
+    CHAR_LOCK = 'A'; MOVING = 'D'; SPEED = 1; FOOD_INDEX = 0; WIDTH_CONSOLE = 70; HEIGHT_CONSOLE = 20; SIZE_SNAKE = 4; isPlayedGameOverSound = isNextLevel = false; Level = 1; numsOfWalls = 0; gateIn = gateOut = dummyGate;
     // Initialize default values for snake
     snake[0] = { 10, 5 }; snake[1] = { 11, 5 };
     snake[2] = { 12, 5 }; snake[3] = { 13, 5 };
     snake[4] = { 14, 5 }; snake[5] = { 15, 5 };
-    GenerateFood();//Create food array
+    //GenerateFood();//Create food array, already created in StartGame() func
 }
 
 bool IsValidGate(int x, int y) {
@@ -182,6 +143,23 @@ bool IsValidGate(int x, int y) {
 }
 
 
+void DrawGateIn() {
+    //Draw
+    int x = gateIn.x;
+    int y = gateIn.y;
+    setColor(RED);
+    GotoXY(x - 1, y);
+    cout << (char)201;
+    setColor(GOLDEN);
+    cout << 'O';
+    setColor(RED);
+    cout << (char)187;
+    GotoXY(x - 1, y + 1);
+    cout << (char)202;
+    GotoXY(x + 1, y + 1);
+    cout << (char)202;
+}
+
 void GenerateGateIn() {
     int x, y = 0; // Fix the gateIn on the top-border
     srand(time(NULL));
@@ -194,19 +172,7 @@ void GenerateGateIn() {
     gateIn.x = x;
     gateIn.y = y;
 
-    //Draw
-    setColor(RED);
-    GotoXY(x - 1, y);
-    cout << (char)201;
-    setColor(GOLDEN);
-    cout << 'O';
-    setColor(RED);
-    cout << (char)187;
-    GotoXY(x - 1, y + 1);
-    cout << (char)202;
-    GotoXY(x + 1, y + 1);
-    cout << (char)202;
-    setColor(WHITE);
+    DrawGateIn();
 }
 
 void GenerateGateOut() {
@@ -226,19 +192,6 @@ void GenerateGateOut() {
     GotoXY(x - 1, y - 1);
     cout << (char)203;
     //setColor(WHITE);
-}
-
-void ClearGateIn() {
-    int x = gateIn.x;
-    int y = gateIn.y;
-    setColor(GOLDEN);
-    GotoXY(x - 1, y);
-    cout << (char)205 << (char)205 << (char)205; //3 spaces
-    setColor(WHITE);
-    GotoXY(x - 1, y + 1);
-    cout << " ";
-    GotoXY(x + 1, y + 1);
-    cout << " ";
 }
 
 void ClearGateOut() {
@@ -268,240 +221,12 @@ void DrawBoard(int x, int y, int width, int height, int curPosX = 0, int curPosY
         GotoXY(x + width, i); cout << (char)186;
     }
     GotoXY(curPosX, curPosY);
-
-}
-
-void printInterface() {
-
-    //print "SCORE" with ascii art
-    ifstream ScoreFile("SCORE.txt");
-    int y = 1;
-    if (ScoreFile) {
-        while (ScoreFile.good()) {
-            string TempLine;
-            getline(ScoreFile, TempLine);
-            setColor(GREEN);
-            GotoXY(WIDTH_CONSOLE + 5, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    ScoreFile.close();
-
-    //print the board of score
-    setColor(GREEN);
-    y = 7;
-    GotoXY(WIDTH_CONSOLE + 3, y); cout << (char)201;
-    for (int i = 1; i < 44; i++) cout << (char)205;
-    GotoXY(WIDTH_CONSOLE + 47, y); cout << (char)187;
-    GotoXY(WIDTH_CONSOLE + 3, y + 9); cout << (char)200;
-    for (int i = 1; i < 44; i++) cout << (char)205;
-    cout << (char)188;
-    for (int i = 8; i < y + 9; i++) {
-        GotoXY(WIDTH_CONSOLE + 3, i); cout << (char)186;
-        GotoXY(WIDTH_CONSOLE + 47, i); cout << (char)186;
-    }
-
-    //print "TEAM 2" with ascii art
-    ifstream TeamFile("TEAM2.txt");
-    y = HEIGHT_CONSOLE;
-    if (TeamFile) {
-        while (TeamFile.good()) {
-            string TempLine;
-            getline(TeamFile, TempLine);
-            setColor(PURPLE);
-            GotoXY(WIDTH_CONSOLE + 15, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    TeamFile.close();
-
-    //print "DEVLOR" with ascii art
-    ifstream DEVLORFile("DEVLOR.txt");
-    y = HEIGHT_CONSOLE + 5;
-    if (DEVLORFile) {
-        while (DEVLORFile.good()) {
-            string TempLine;
-            getline(DEVLORFile, TempLine);
-            setColor(PURPLE);
-            GotoXY(WIDTH_CONSOLE + 6, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    DEVLORFile.close();
-
-    //print "LEVEL 1"/"LEVEL 2"/"LEVEL 3" with ascii art
-    switch (Level) {
-    case 1: {
-        ifstream Level1File("LEVEL1.txt");
-        y = HEIGHT_CONSOLE + 2;
-        if (Level1File) {
-            while (Level1File.good()) {
-                string TempLine;
-                getline(Level1File, TempLine);
-                setColor(LIGHTBLUE);
-                GotoXY(10, y);
-                cout << TempLine << endl;
-                y++;
-            }
-        }
-        Level1File.close();
-        break;
-    }
-    case 2: {
-        ifstream Level2File("LEVEL2.txt");
-        y = HEIGHT_CONSOLE + 2;
-        if (Level2File) {
-            while (Level2File.good()) {
-                string TempLine;
-                getline(Level2File, TempLine);
-                setColor(LIGHTBLUE);
-                GotoXY(10, y);
-                cout << TempLine << endl;
-                y++;
-            }
-        }
-        Level2File.close();
-        break;
-    }
-    case 3: {
-        ifstream Level3File("LEVEL3.txt");
-        y = HEIGHT_CONSOLE + 2;
-        if (Level3File) {
-            while (Level3File.good()) {
-                string TempLine;
-                getline(Level3File, TempLine);
-                setColor(LIGHTBLUE);
-                GotoXY(10, y);
-                cout << TempLine << endl;
-                y++;
-            }
-        }
-        Level3File.close();
-        break;
-    }
-    case 4: {
-        ifstream Level4File("LEVEL4.txt");
-        y = HEIGHT_CONSOLE + 2;
-        if (Level4File) {
-            while (Level4File.good()) {
-                string TempLine;
-                getline(Level4File, TempLine);
-                setColor(LIGHTBLUE);
-                GotoXY(10, y);
-                cout << TempLine << endl;
-                y++;
-            }
-        }
-        Level4File.close();
-        break;
-    }
-    }
-
-    //print snake with ascii art
-    ifstream SnakeFile("SNAKE.txt");
-    y = HEIGHT_CONSOLE + 2;
-    if (SnakeFile) {
-        while (SnakeFile.good()) {
-            string TempLine;
-            getline(SnakeFile, TempLine);
-            setColor(LIGHTBLUE);
-            GotoXY(45, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    TeamFile.close();
-}
-
-void printScore() {
-    //Print current score (1 food = 10 score)
-    GotoXY(WIDTH_CONSOLE + 8, 9);
-    setColor(RED);
-    cout << "SCORE:";
-    GotoXY(WIDTH_CONSOLE + 40, 9);
-    cout << SCORE * 10;
-
-    //Print number of foods that the snake has eaten at current level
-    GotoXY(WIDTH_CONSOLE + 8, 11);
-    setColor(RED);
-    cout << "FOOD:";
-    GotoXY(WIDTH_CONSOLE + 40, 11);
-    cout << Food << "/" << MAX_SIZE_FOOD;
-
-    //Print current snake's length
-    GotoXY(WIDTH_CONSOLE + 8, 13);
-    setColor(RED);
-    cout << "SNAKE'S LENGTH:";
-    GotoXY(WIDTH_CONSOLE + 40, 13);
-    cout << SIZE_SNAKE;
-
-}
-
-void printGameOverInterface() {
-
-    //print "GAME OVER" with ascii art
-    ifstream GameOverFile("GAMEOVER.txt");
-    int y = 5;
-    if (GameOverFile) {
-        while (GameOverFile.good()) {
-            string TempLine;
-            getline(GameOverFile, TempLine);
-            setColor(RED);
-            GotoXY(8, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    GameOverFile.close();
-
-    //print "CONTINUE" with ascii art
-    ifstream ContinueFile("CONTINUE.txt");
-    y = 12;
-    if (ContinueFile) {
-        while (ContinueFile.good()) {
-            string TempLine;
-            getline(ContinueFile, TempLine);
-            setColor(RED);
-            GotoXY(13, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    GotoXY(11, 16);
-    cout << "[  Press 'Y'  ]";
-    ContinueFile.close();
-
-    //print "EXIT" with ascii art
-    ifstream ExitFile("EXIT.txt");
-    y = 12;
-    if (ExitFile) {
-        while (ExitFile.good()) {
-            string TempLine;
-            getline(ExitFile, TempLine);
-            setColor(RED);
-            GotoXY(45, y);
-            cout << TempLine << endl;
-            y++;
-        }
-    }
-    GotoXY(43, 16);
-    cout << "[ Press anykey ]";
-    ExitFile.close();
-
 }
 
 void StartGame() {
     system("cls");
     ResetData(); //Initialize
-
-    //Draw game
-    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
-    printInterface();
-    printScore();
-
+    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE); //Draw game
     STATE = 1; //Start
     GenerateFood();
 }
@@ -516,12 +241,42 @@ void PauseGame(HANDLE t) {
     SuspendThread(t);
 }
 
+void setVolume()
+{
+    if (volume != 0)
+        volume = 0;
+    else
+        volume = 65535;
+
+    DWORD dwSpeakers = (DWORD)-1;
+    DWORD dwVolume;
+    BOOL bSuccess = FALSE;
+
+    bSuccess = waveOutGetVolume((HWAVEOUT)dwSpeakers, &dwVolume);
+
+    waveOutSetVolume((HWAVEOUT)dwSpeakers, (DWORD)volume);
+
+}
+
 void PlayEatingSound() {
     PlaySound(TEXT("retro-coin-02.wav"), NULL, SND_FILENAME | SND_ASYNC);
 }
 
 void PlayGameOverSound() {
     PlaySound(TEXT("game-over.wav"), NULL, SND_FILENAME | SND_ASYNC);
+}
+
+void PlayBGM() {
+    while (true) {
+        if (backgroundMusic == true) {
+            PlaySound(TEXT("BGM.wav"), NULL, SND_FILENAME | SND_ASYNC);
+            backgroundMusic = false;
+        }
+    }
+}
+
+void PlayChooseSound() {
+    PlaySound(TEXT("choose"), NULL, SND_FILENAME | SND_ASYNC);
 }
 
 void ClearFood() {
@@ -532,8 +287,6 @@ void ClearFood() {
 //Function to update global data
 void Eat() {
     PlayEatingSound();
-    SCORE++;
-    Food++;
     snake[SIZE_SNAKE] = food[FOOD_INDEX];
 
     if (FOOD_INDEX == MAX_SIZE_FOOD - 1) { //Eat all the food at this level
@@ -546,7 +299,6 @@ void Eat() {
         FOOD_INDEX++;
         SIZE_SNAKE++;
     }
-    printScore();
 }
 
 void ClearSnakeAndFood() {
@@ -586,6 +338,7 @@ void DrawSnake(string str) {
 }
 
 void ClearSnake() {
+    setColor(WHITE);
     for (int i = 0; i < SIZE_SNAKE; i++) {
         GotoXY(snake[i].x, snake[i].y);
         cout << " ";
@@ -597,7 +350,7 @@ void BlinkSnake() {
         Sleep(200);
         DrawSnake(ID_STUDENT);
         Sleep(100);
-        ClearSnakeAndFood();
+        ClearSnake();
     }
 }
 
@@ -607,25 +360,71 @@ void ProcessDead() {
         PlayGameOverSound();
         isPlayedGameOverSound = true;
     }
-    STATE = 2;
+    STATE = 0;
     BlinkSnake();
-    ClearGateIn();
-    ClearGateOut();
-    //Clear the game board inside
-    for (int y = 1; y < HEIGHT_CONSOLE; y++) {
-        GotoXY(1, y);
-        for (int x = 1; x < WIDTH_CONSOLE; x++) cout << " ";
+    setColor(244);
+    GotoXY(0, HEIGHT_CONSOLE + 2);
+    cout << "Dead, type \'y\' to continue or anykey to exit!";
+    //setColor(WHITE);
+}
+
+void wallGeneration() {
+    setColor(RED);
+    numsOfWalls = 0;
+
+    switch (Level) {
+    case 2:
+    {
+        wall[0] = { 28,7 };
+        for (int i = 28; i <= 42; i++) {
+            wall[numsOfWalls++] = { i,7 };
+            GotoXY(i, 7);
+            cout << (char)254;
+        }
+
+        for (int i = 28; i <= 42; i++) {
+            wall[numsOfWalls++] = { i, 13 };
+            GotoXY(i, 13);
+            cout << (char)254;
+        }
+        break;
     }
-    printGameOverInterface();
-    setColor(WHITE);
+    case 3:
+    {
+        int j = 10;
+        for (int i = 15; i <= 20; i++) {
+            GotoXY(i, j);
+            cout << (char)174;
+            wall[numsOfWalls++] = { i, j-- };
+        }
+        for (int i = 16; i <= 20; i++) {
+            GotoXY(i, i - 5);
+            cout << (char)174;
+            wall[numsOfWalls++] = { i,i - 5 };
+        }
+        for (int i = 50; i <= 55; i++) {
+            GotoXY(i, i - 45);
+            cout << (char)175;
+            wall[numsOfWalls++] = { i,i - 45 };
+        }
+        j = 15;
+        for (int i = 50; i <= 54; i++) {
+            GotoXY(i, j);
+            cout << (char)175;
+            wall[numsOfWalls++] = { i, j-- };
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
 }
 
 void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
     system("cls");
-    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = isNextLevel = false; Level = 2; Food = 0; checkMoney = 0; checkBomb = 0;
+    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = false; isNextLevel = false;
     DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
-    printInterface();
-    printScore();
     STATE = 1;
     //ClearGateOut();
     GenerateGateOut();
@@ -636,9 +435,10 @@ void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         snake[i].x = 888;
         snake[i].y = 888;
     }
-    gateIn.x = -10, gateIn.y = -10;
 
-    setColor(RED);
+    //gateIn.x = -10, gateIn.y = -10;
+
+    /*setColor(RED);
     numsOfWalls = 0;
     wall[0] = { 28,7 };
     for (int i = 28; i <= 42; i++) {
@@ -651,16 +451,15 @@ void Level_2(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         wall[numsOfWalls++] = { i, 13 };
         GotoXY(i, 13);
         cout << (char)254;
-    }
+    }*/
+    wallGeneration();
     GenerateFood();
 }
 
 void Level_3(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
     system("cls");
-    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = isNextLevel = false; Level = 3; Food = 0; checkMoney = 0; checkBomb = 0;
+    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = isNextLevel = false;
     DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
-    printInterface();
-    printScore();
     STATE = 1;
     GenerateGateOut();
     snake[SIZE_SNAKE - 1].x = gateOut.x;
@@ -670,9 +469,9 @@ void Level_3(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         snake[i].x = 888;
         snake[i].y = 888;
     }
-    gateIn.x = -10, gateIn.y = -10;
+    //gateIn.x = -10, gateIn.y = -10;
 
-    setColor(RED);
+    /*setColor(RED);
     numsOfWalls = 0;
     int j = 10;
     for (int i = 15; i <= 20; i++) {
@@ -695,94 +494,8 @@ void Level_3(int x, int y, int width, int height, int curPosX = 0, int curPosY =
         GotoXY(i, j);
         cout << (char)175;
         wall[numsOfWalls++] = { i, j-- };
-    }
-    GenerateFood();
-}
-
-void Level_4(int x, int y, int width, int height, int curPosX = 0, int curPosY = 0) {
-    system("cls");
-    CHAR_LOCK = 'S', MOVING = 'W', SPEED = 2; FOOD_INDEX = 0, WIDTH_CONSOLE = 70, HEIGHT_CONSOLE = 20; isPlayedGameOverSound = isNextLevel = false; Level = 4; Food = 0; checkMoney = 0; checkBomb = 0;
-    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
-    printInterface();
-    printScore();
-    STATE = 1;
-    GenerateGateOut();
-    snake[SIZE_SNAKE - 1].x = gateOut.x;
-    snake[SIZE_SNAKE - 1].y = gateOut.y - 1;
-    //Set other coordinate to NULL
-    for (int i = 0; i < SIZE_SNAKE - 1; i++) {
-        snake[i].x = 888;
-        snake[i].y = 888;
-    }
-    //gateIn.x = -10, gateIn.y = -10;
-
-    setColor(RED);
-    numsOfWalls = 0;
-
-    for (int i = 10; i <= 60; i++) {
-        if (i < 33 || i > 37) {
-            GotoXY(i, 5);
-            cout << (char)205;
-            wall[numsOfWalls++] = { i, 5 };
-        }
-    }
-    for (int i = 10; i <= 60; i++) {
-        if (i < 33 || i > 37) {
-            GotoXY(i, 15);
-            cout << (char)205;
-            wall[numsOfWalls++] = { i, 15 };
-        }
-    }
-    for (int i = 6; i <= 14; i++) {
-        if (i < 9 || i > 11) {
-            GotoXY(10, i);
-            cout << (char)186;
-            wall[numsOfWalls++] = { 10,i };
-        }
-    }
-    for (int i = 6; i <= 14; i++) {
-        if (i < 9 || i > 11) {
-            GotoXY(60, i);
-            cout << (char)186;
-            wall[numsOfWalls++] = { 60,i };
-        }
-    }
-    for (int i = 8; i <= 14; i++) {
-        GotoXY(20, i);
-        cout << (char)186;
-        wall[numsOfWalls++] = { 20,i };
-    }
-    for (int i = 8; i <= 14; i++) {
-        GotoXY(40, i);
-        cout << (char)186;
-        wall[numsOfWalls++] = { 40,i };
-    }
-    for (int i = 6; i <= 12; i++) {
-        GotoXY(30, i);
-        cout << (char)186;
-        wall[numsOfWalls++] = { 30,i };
-    }
-    for (int i = 6; i <= 12; i++) {
-        GotoXY(50, i);
-        cout << (char)186;
-        wall[numsOfWalls++] = { 50,i };
-    }
-    GotoXY(60, 15);
-    cout << (char)188;
-    GotoXY(60, 5);
-    cout << (char)187;
-    GotoXY(10, 5);
-    cout << (char)201;
-    GotoXY(10, 15);
-    cout << (char)200;
-    GotoXY(30, 5);
-    cout << (char)203;
-    GotoXY(50, 5);
-    cout << (char)203;
-    GotoXY(20, 15);
-    cout << (char)202;
-    GotoXY(40, 15);
-    cout << (char)202;
+    }*/
+    wallGeneration();
     GenerateFood();
 }
 
@@ -794,9 +507,6 @@ void ChangeLevel() {
     case 3:
         Level_3(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
         break;
-    case 4:
-        Level_4(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE);
-        break;
     default:
         StartGame();
         break;
@@ -807,24 +517,22 @@ void ProcessGate() {
     if (!matchCoordinate(dummyGate, gateIn) && matchCoordinate(snake[SIZE_SNAKE - 1], gateIn)) {
         Level += 1;
         PlaySound(TEXT("goodresult.wav"), NULL, SND_FILENAME | SND_ASYNC);
+        //ClearSnakeAndFood();
         ChangeLevel();
     }
     else {
-        if (!isNextLevel) {
+        if (!isNextLevel)
             DrawFood((char)254);
-            GenerateMoney();
-            if (matchCoordinate(snake[SIZE_SNAKE - 1], money)) {
-                PlaySound(TEXT("announcement-sound-4-21464.wav"), NULL, SND_FILENAME | SND_ASYNC);
-                SCORE += 3;
-                printScore();
-            }
-            GenerateBomb();
-            if (matchCoordinate(snake[SIZE_SNAKE - 1], bombs) || (snake[SIZE_SNAKE - 1].x == bombs.x && snake[SIZE_SNAKE - 1].y == bombs.y - 1)) {
-                PlaySound(TEXT("hq-explosion-6288.wav"), NULL, SND_FILENAME | SND_ASYNC);
-                isPlayedGameOverSound = true;
-                STATE = 0;
-            }
+
+        /*
+        //Clear gate
+        POINT temp = gateOut;
+        temp.y--;
+        if (matchCoordinate(snake[0], temp)) { //snake_tail
+            ClearGateOut();
         }
+        */
+        //Draw snake
         DrawSnake(ID_STUDENT);
     }
 
@@ -838,6 +546,146 @@ void ProcessGate() {
             gateOut = dummyGate;
         }
     }
+
+}
+
+void SaveData() {
+    string FileName;
+
+    int column = 30;
+    int row = 8;
+    int xgame = (WIDTH_CONSOLE / 2) - 15;
+    int ygame = (HEIGHT_CONSOLE / 2) - 3;
+
+    setColor(PURPLE);
+    for (int i = 0; i < row; i++)
+    {
+        GotoXY(xgame, ygame + i);
+        for (int j = 0; j < column; j++)
+        {
+            if (i == 0)
+                cout << (unsigned char)220;
+            else if (i == row - 1)
+                cout << (unsigned char)223;
+            else if (j == 0 || j == column - 1)
+                cout << (unsigned char)219;
+            else
+                cout << " ";
+        }
+    }
+
+    GotoXY(xgame + 9, ygame + 2);
+    cout << "Save and Exit";
+    GotoXY(xgame + 14, ygame + 5);
+    GotoXY(xgame + 3, ygame + 3);
+    cout << "Name: ";
+
+    cin >> FileName;
+
+    ofstream fo(".\\Data\\" + FileName);
+
+    ofstream f_user;
+    f_user.open(".\\Data\\username.txt", ios::app);
+    f_user << FileName << endl;
+    f_user.close();
+
+    fo << SIZE_SNAKE << " " << endl;
+
+    for (int i = 0; i < SIZE_SNAKE; i++)
+        fo << snake[i].x << " " << snake[i].y << endl;
+
+    fo << FOOD_INDEX << endl;
+
+    for (int i = 0; i < 4; i++)
+        fo << food[i].x << " " << food[i].y << endl;
+
+    fo << Level << endl;
+
+    if (isNextLevel)
+        fo << gateIn.x << endl;
+    else
+        fo << -10 << endl;
+
+    fo << MOVING << endl;
+
+    fo << SPEED << endl;
+
+    fo.close();
+}
+
+void LoadData() {
+    string FileName;
+    int column = 30;
+    int row = 8;
+    int xgame = (WIDTH_CONSOLE / 2) - 15;
+    int ygame = (HEIGHT_CONSOLE / 2) - 3;
+
+    setColor(PURPLE);
+    for (int i = 0; i < row; i++)
+    {
+        GotoXY(xgame, ygame + i);
+        for (int j = 0; j < column; j++)
+        {
+            if (i == 0)
+                cout << (unsigned char)220;
+            else if (i == row - 1)
+                cout << (unsigned char)223;
+            else if (j == 0 || j == column - 1)
+                cout << (unsigned char)219;
+            else
+                cout << " ";
+        }
+    }
+
+    GotoXY(xgame + 11, ygame + 2);
+    cout << "Load data";
+    GotoXY(xgame + 14, ygame + 5);
+    GotoXY(xgame + 3, ygame + 3);
+    cout << "Name: ";
+
+    cin >> FileName;
+
+    //Start saved game
+    system("cls");
+    DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE); //Draw game
+    STATE = 1; //Start
+
+    ifstream fi(".\\Data\\" + FileName);
+
+    fi >> SIZE_SNAKE;
+
+    for (int i = 0; i < SIZE_SNAKE; i++)
+        fi >> snake[i].x >> snake[i].y;
+    DrawSnake(ID_STUDENT);
+
+    fi >> FOOD_INDEX;
+    for (int i = 0; i < MAX_SIZE_FOOD; i++)
+        fi >> food[i].x >> food[i].y;
+
+    DrawFood((char)254);
+
+    fi >> Level;
+    wallGeneration(); //only call when Level is updated
+
+    int gateInX;
+
+    fi >> gateInX;
+
+    if (gateInX != -10) { //gateIn exist, or isNextLevel == true
+        isNextLevel = true;
+        gateIn.x = gateInX;
+        gateIn.y = 0;
+        DrawGateIn();
+    }
+    else {
+        isNextLevel = false;
+    }
+
+    fi >> MOVING;
+
+    fi >> SPEED;
+
+    fi.close();
 }
 
 bool hitObstacle(POINT newPoint) {
@@ -873,9 +721,6 @@ bool hitObstacle(POINT newPoint) {
     }
 
     return false;
-
-
-
 }
 
 
@@ -1269,7 +1114,7 @@ void menu() {
 
     int x = 48, y = 9;
     int xmove = 48;
-    int ymove = 9;
+    static int ymove = 9;
     int x_menu = 32;
     int y_menu = 1;
     char c;
@@ -1427,6 +1272,7 @@ void menu() {
             }
             if (c == '\r')
             {
+                PlayChooseSound();
                 if (ymove == 9)
                 {
                     menu_choice = 1;
@@ -1537,129 +1383,241 @@ void menu() {
     }
 }
 
-
 int main() {
     system("color F0");
-    int temp;
-    FixConsoleWindow();
+    fixconsolewindows();
+    backgroundMusic = true;
+    setVolume();
+    /*FixConsoleWindow();
     ShowConsoleCursor(false);
-    bool TurnOnThread = false;
     SetConsoleCP(437);
-    SetConsoleOutputCP(437);
+    SetConsoleOutputCP(437);*/
 
+    int temp;
+    bool TurnOnThread = false;
+
+    intro();
     //StartGame();
     //setcursor(0, 0);  //!!!
     //if (TurnOnThread == false)
     //{
-
-
     thread t1(ThreadFunc); //Create thread for snake
     HANDLE handle_t1 = t1.native_handle(); //Take handle of thread
 
     PauseGame(handle_t1);
+    thread BGM(PlayBGM);
+    HANDLE handle_BGM = BGM.native_handle();
+    BGM.detach();
 
     //}
-    intro();
-    menu();
 
-    if (menu_choice == 1)
+MENU:
     {
-        StartGame();
-        DrawSnake(ID_STUDENT);
-        while (true) {
-            temp = toupper(_getch()); // ???
-            if (STATE == 1) {
-                if (temp == 'P') {
-                    PauseGame(handle_t1);
-                }
-                else if (temp == 27) { // 27 is ASCII value of 'ESC' key
-                    ExitGame(handle_t1);
-                    return 0;
+
+        menu();
+        gameIsPaused = true;
+        if (menu_choice == 1)
+        {
+
+            StartGame();
+            DrawSnake(ID_STUDENT);
+            while (true) {
+                temp = toupper(_getch()); // ???
+                if (STATE == 1) {
+                    if (temp == 'P') {
+                        PauseGame(handle_t1);
+                        gameIsPaused = false;
+                    }
+
+                    else if (temp == 'L') {
+                        SaveData();
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
+
+                    else if (temp == 'T') {
+                        LoadData();
+                    }
+
+                    else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                        if (gameIsPaused == true)
+                        {
+                            ExitGame(handle_t1);
+                            return 0;
+                        }
+                        else
+                        {
+                            PauseGame(handle_t1);
+                            SaveData();
+                            backgroundMusic = true;
+                            goto MENU;
+                        }
+                    }
+                    else {
+                        ResumeThread(handle_t1);
+
+                        //Logic of snake's move
+                        if (isValidKey(temp)) {
+                            if (temp == 'D')
+                                CHAR_LOCK = 'A';
+                            else if (temp == 'A')
+                                CHAR_LOCK = 'D';
+                            else if (temp == 'W')
+                                CHAR_LOCK = 'S';
+                            else
+                                CHAR_LOCK = 'W';
+                            MOVING = temp;
+                        }
+                    }
                 }
                 else {
-                    ResumeThread(handle_t1);
-
-                    //Logic of snake's move
-                    if (isValidKey(temp)) {
-                        if (temp == 'D')
-                            CHAR_LOCK = 'A';
-                        else if (temp == 'A')
-                            CHAR_LOCK = 'D';
-                        else if (temp == 'W')
-                            CHAR_LOCK = 'S';
-                        else
-                            CHAR_LOCK = 'W';
-                        MOVING = temp;
+                    if (temp == 'Y')
+                        StartGame();
+                    else if (temp == 13)
+                    {
+                        PauseGame(handle_t1);
+                        DrawSnake(ID_STUDENT);
+                        //menu();
+                        goto MENU;
+                    }
+                    else
+                    {
+                        ExitGame(handle_t1);
+                        return 0;
                     }
                 }
             }
-            else {
-                if (temp == 'Y')
-                    StartGame();
-                else if (temp == 13)
-                {
-                    PauseGame(handle_t1);
-                    DrawSnake(ID_STUDENT);
-                    menu();
-                }
-                else
-                {
-                    ExitGame(handle_t1);
-                    return 0;
-                }
-            }
         }
-    }
-    else if (menu_choice == 2)
-    {
-        Choose_Score();
-        menu();
-    }
-    else if (menu_choice == 3)
-    {
-        system("cls");
-        cout << "WILL BE UPDATED SOON";
-        while (true)
+        else if (menu_choice == 2) // Load game
         {
-            if (_kbhit())
-            {
-                int temp = toupper(_getch());
-                if (temp == 27)
-                    break;
-            }
-        }
+            backgroundMusic = true;
+            //Choose_Score(); ///!!!!
+            //menu();
+            StartGame();
+            LoadData();
+            DrawSnake(ID_STUDENT);
+            while (true) {
+                temp = toupper(_getch()); // ???
+                if (STATE == 1) {
+                    if (temp == 'P') {
+                        PauseGame(handle_t1);
+                    }
 
-    }
-    else if (menu_choice == 4)
-    {
-        cout << "WILL BE UPDATED SOON";
-        while (true)
-        {
-            if (_kbhit())
-            {
-                int temp = toupper(_getch());
-                if (temp == 27)
-                    break;
-            }
-        }
+                    else if (temp == 'L') {
+                        SaveData();
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
 
-    }
-    else if (menu_choice == 5)
-    {
-        cout << "WILL BE UPDATED SOON";
-        while (true)
-        {
-            if (_kbhit())
-            {
-                int temp = toupper(_getch());
-                if (temp == 27)
-                    break;
+                    else if (temp == 'T') {
+                        LoadData();
+                    }
+
+                    else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
+                    else {
+                        ResumeThread(handle_t1);
+
+                        //Logic of snake's move
+                        if (isValidKey(temp)) {
+                            if (temp == 'D')
+                                CHAR_LOCK = 'A';
+                            else if (temp == 'A')
+                                CHAR_LOCK = 'D';
+                            else if (temp == 'W')
+                                CHAR_LOCK = 'S';
+                            else
+                                CHAR_LOCK = 'W';
+                            MOVING = temp;
+                        }
+                    }
+                }
+                else {
+                    if (temp == 'Y')
+                        StartGame();
+                    else if (temp == 13)
+                    {
+                        PauseGame(handle_t1);
+                        DrawSnake(ID_STUDENT);
+                        menu();
+                    }
+                    else
+                    {
+                        ExitGame(handle_t1);
+                        return 0;
+                    }
+                }
             }
+            ///goto MENU; ///!!!
         }
-    }
-    else if (menu_choice == 6) {
-        ExitGame(handle_t1);
-        return 0;
-    }
+        else if (menu_choice == 3)
+        {
+
+            system("cls");
+            cout << "WILL BE UPDATED SOON";
+            while (true)
+            {
+                if (_kbhit())
+                {
+                    int temp = toupper(_getch());
+                    if (temp == 27)
+                        break;
+                }
+            }
+            backgroundMusic = true;
+            goto MENU;
+        }
+        else if (menu_choice == 4)
+        {
+            if (volume != 0)
+                cout << "Type \'M\' to mute!";
+            else
+                cout << "Type \'M\' to unmute";
+            while (true)
+            {
+
+                if (_kbhit())
+                {
+                    int temp = toupper(_getch());
+                    if (temp == 27)
+                        break;
+                    else if (temp == 'M')
+                    {
+                        setVolume();
+                        system("cls");
+                        if (volume != 0)
+                            cout << "Type \'M\' to mute!";
+                        else
+                            cout << "Type \'M\' to unmute";
+                    }
+                }
+            }
+            backgroundMusic = true;
+            goto MENU;
+        }
+        else if (menu_choice == 5)
+        {
+
+            cout << "WILL BE UPDATED SOON";
+            while (true)
+            {
+                if (_kbhit())
+                {
+                    int temp = toupper(_getch());
+                    if (temp == 27)
+                        break;
+                }
+            }
+            backgroundMusic = true;
+            goto MENU;
+        }
+        else if (menu_choice == 6) {
+
+            ExitGame(handle_t1);
+            return 0;
+        }
+    }   
     return 0;
 }
