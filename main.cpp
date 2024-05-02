@@ -617,26 +617,19 @@ void LoadData() {
     DrawBoard(0, 0, WIDTH_CONSOLE, HEIGHT_CONSOLE); //Draw game
     STATE = 1; //Start
 
-    /*for (int i = 0; i < SIZE_SNAKE; i++)
-    {
-        GotoXY(snake[i].x, snake[i].y);
-        cout << " ";
-    }*/
-
     ifstream fi(".\\Data\\" + FileName);
 
     fi >> SIZE_SNAKE;
 
     for (int i = 0; i < SIZE_SNAKE; i++)
         fi >> snake[i].x >> snake[i].y;
+    DrawSnake(ID_STUDENT);
 
     fi >> FOOD_INDEX;
-
-    //GotoXY(food[FOOD_INDEX].x, food[FOOD_INDEX].y);
-
-    //cout << " ";
     for (int i = 0; i < MAX_SIZE_FOOD; i++)
         fi >> food[i].x >> food[i].y;
+
+    DrawFood((char)254);
 
     fi >> Level;
     wallGeneration(); //only call when Level is updated
@@ -1405,7 +1398,7 @@ int main() {
                     return 0;
                 }
                 else {
-                    ResumeThread(handle_t1);
+                    ResumeThread(handle_t1); //Wait the keyboard
 
                     //Logic of snake's move
                     if (isValidKey(temp)) {
@@ -1438,10 +1431,67 @@ int main() {
             }
         }
     }
-    else if (menu_choice == 2)
+    else if (menu_choice == 2) //Load game
     {
-        Choose_Score();
-        menu();
+        //Choose_Score(); ///!!!!
+        //menu();
+        StartGame();
+        LoadData();
+        DrawSnake(ID_STUDENT);
+        while (true) {
+            temp = toupper(_getch()); // ???
+            if (STATE == 1) {
+                if (temp == 'P') {
+                    PauseGame(handle_t1);
+                }
+
+                else if (temp == 'L') {
+                    SaveData();
+                    ExitGame(handle_t1);
+                    return 0;
+                }
+
+                else if (temp == 'T') {
+                    LoadData();
+                }
+
+                else if (temp == 27) { // 27 is ASCII value of 'ESC' key
+                    ExitGame(handle_t1);
+                    return 0;
+                }
+                else {
+                    ResumeThread(handle_t1);
+
+                    //Logic of snake's move
+                    if (isValidKey(temp)) {
+                        if (temp == 'D')
+                            CHAR_LOCK = 'A';
+                        else if (temp == 'A')
+                            CHAR_LOCK = 'D';
+                        else if (temp == 'W')
+                            CHAR_LOCK = 'S';
+                        else
+                            CHAR_LOCK = 'W';
+                        MOVING = temp;
+                    }
+                }
+            }
+            else {
+                if (temp == 'Y')
+                    StartGame();
+                else if (temp == 13)
+                {
+                    PauseGame(handle_t1);
+                    DrawSnake(ID_STUDENT);
+                    menu();
+                }
+                else
+                {
+                    ExitGame(handle_t1);
+                    return 0;
+                }
+            }
+        }
     }
     else if (menu_choice == 3)
     {
